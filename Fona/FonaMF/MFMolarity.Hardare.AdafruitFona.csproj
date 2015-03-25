@@ -31,7 +31,7 @@
   <ItemGroup>
     <Compile Include="FonaDevice.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SerialExtensions.cs" />
+    <Compile Include="MolaritySerialPort.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.SPOT.Hardware" />

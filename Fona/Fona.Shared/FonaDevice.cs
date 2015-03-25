@@ -13,13 +13,24 @@ namespace Molarity.Hardare.AdafruitFona
         private const string EchoOffCommand = "ATE0";
         private const string UnlockCommand = "AT+CPIN=";
         private const string GetCcidCommand = "AT+CCID";
+        private const string GetImeiCommand = "AT+GSN";
 
+#if MF_FRAMEWORK
+        private readonly Molarity.Hardware.SerialPort _port;
+#else
         private readonly SerialPort _port;
+#endif
         private object _lock = new object();
 
         public FonaDevice(SerialPort port)
         {
+#if MF_FRAMEWORK
+            // The Micro Framework serial port is a bit impoverished.
+            //   Use a wrapper to give us consistent functionality across platforms.
+            _port = new Molarity.Hardware.SerialPort(port);
+#else
             _port = port;
+#endif
             _port.NewLine = "\r\n";
             _port.Open();
         }
@@ -67,6 +78,13 @@ namespace Molarity.Hardare.AdafruitFona
         public string GetSimCcid()
         {
             var response = SendAndReadReply(GetCcidCommand);
+            Expect(OK);
+            return response;
+        }
+
+        public string GetImei()
+        {
+            var response = SendAndReadReply(GetImeiCommand);
             Expect(OK);
             return response;
         }
