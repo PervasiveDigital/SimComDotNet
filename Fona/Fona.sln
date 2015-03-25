@@ -1,0 +1,69 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFMolarity.Hardare.AdafruitFona", "FonaMF\MFMolarity.Hardare.AdafruitFona.csproj", "{2395410B-6C7A-451C-87C8-F918836AEDBA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Molarity.Hardware.AdafruitFona", "Fona\Molarity.Hardware.AdafruitFona.csproj", "{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Fona.Shared", "Fona.Shared\Fona.Shared.shproj", "{60824738-2FA9-4CDD-BFD2-CF270C12F996}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{1A101D4A-89B8-4646-807C-4BD195068D30}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{E2CD93D5-FFC3-4771-932A-03CEDCDED653}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FonaTest", "FonaTest\FonaTest.csproj", "{83FF6E7C-84B6-476B-BD27-2C4146586B6E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFFonaTest", "MFFonaTest\MFFonaTest.csproj", "{F8031D60-D3E0-4FDA-9794-64A55DF24454}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPiMolarity.Hardare.AdafruitFona", "RPiFona\RPiMolarity.Hardare.AdafruitFona.csproj", "{215CBD0C-27E0-4F3F-9CE0-714387042A25}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Fona.Shared\Fona.Shared.projitems*{60824738-2fa9-4cdd-bfd2-cf270c12f996}*SharedItemsImports = 13
+		Fona.Shared\Fona.Shared.projitems*{2395410b-6c7a-451c-87c8-f918836aedba}*SharedItemsImports = 4
+		Fona.Shared\Fona.Shared.projitems*{6f1b735e-46a2-4cdc-8b4e-4c1316ca8c91}*SharedItemsImports = 4
+		Fona.Shared\Fona.Shared.projitems*{215cbd0c-27e0-4f3f-9ce0-714387042a25}*SharedItemsImports = 4
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{83FF6E7C-84B6-476B-BD27-2C4146586B6E} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
+		{F8031D60-D3E0-4FDA-9794-64A55DF24454} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
+	EndGlobalSection
+EndGlobal
