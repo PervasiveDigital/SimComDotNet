@@ -2,13 +2,13 @@
 
 namespace Molarity.Hardare.AdafruitFona
 {
-    public class FonaException : Exception
+    public abstract class FonaException : Exception
     {
-        public FonaException(string message) : base(message)
+        protected FonaException(string message) : base(message)
         {
         }
 
-        public FonaException(string message, Exception inner) : base(message, inner)
+        protected FonaException(string message, Exception inner) : base(message, inner)
         {
         }
     }

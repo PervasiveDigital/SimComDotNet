@@ -24,6 +24,10 @@ namespace Molarity.Hardare.AdafruitFona
 
         public event RingingEventHandler Ringing;
 
+        /// <summary>
+        /// Create a FonaDevice class for use in communicating with the Adafruit Fona GSM/GPRS breakout board.
+        /// </summary>
+        /// <param name="port">This port should be configured for 8 data bits, one stop bit, no parity at pretty much any speed. The Fona device will autobaud when you call .Reset</param>
         public FonaDevice(SerialPort port)
         {
             _port = port;
@@ -31,6 +35,10 @@ namespace Molarity.Hardare.AdafruitFona
             _port.Open();
         }
 
+        /// <summary>
+        /// Reset the Fona device. Note that you must call this at least one so that the Fona device can auto-baud and synchronize with the
+        /// baud rate you selected on your serial port.
+        /// </summary>
         public void Reset()
         {
             DoHardwareReset();
@@ -65,12 +73,21 @@ namespace Molarity.Hardare.AdafruitFona
             SendAndExpect(EchoOffCommand, OK);
         }
 
+        /// <summary>
+        /// Pass a four-digit code to unlock the SIM. WARNING: Calling this more than three times with the wrong code may lock your SIM and
+        /// render it unusable until you unlock it with a special PUK code from your GSM provider.
+        /// </summary>
+        /// <param name="code"></param>
         public void UnlockSim(string code)
         {
             string command = UnlockCommand + code;
             SendAndExpect(command, OK);
         }
 
+        /// <summary>
+        /// Get the CCID identifier from your SIM. This is a number that uniquely identifies your SIM.
+        /// </summary>
+        /// <returns>SIM CCID</returns>
         public string GetSimCcid()
         {
             var response = SendAndReadReply(GetCcidCommand);
@@ -78,12 +95,18 @@ namespace Molarity.Hardare.AdafruitFona
             return response;
         }
 
+        /// <summary>
+        /// Retrieve the IMEI for the Fona device.  This is a number that uniquely identifies your Fona breakout board.
+        /// </summary>
+        /// <returns>IMEI code from the Fona device</returns>
         public string GetImei()
         {
             var response = SendAndReadReply(GetImeiCommand);
             Expect(OK);
             return response;
         }
+
+        #region Sending Commands
 
         private void SendAndExpect(string send, string expect)
         {
@@ -119,6 +142,10 @@ namespace Molarity.Hardare.AdafruitFona
             }
             return response;
         }
+
+        #endregion
+
+        #region Parse responses
 
         private void Expect(string expect)
         {
@@ -204,6 +231,8 @@ namespace Molarity.Hardare.AdafruitFona
 
             return response;
         }
+
+        #endregion
 
         #region Serial Helpers
 
