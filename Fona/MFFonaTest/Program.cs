@@ -44,7 +44,6 @@ namespace MFFonaTest
                 state = !state;
                 Thread.Sleep(500);
             }
-
         }
 
         private static void FonaOnPowerStateChanged(object sender, PowerStateEventArgs args)

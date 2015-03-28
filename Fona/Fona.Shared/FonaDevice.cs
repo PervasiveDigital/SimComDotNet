@@ -146,7 +146,6 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 acceptableInputFound = false;
                 response = GetReplyWithTimeout(timeout);
-                response = response.Trim();
 
                 foreach (var s in accept)
                 {
