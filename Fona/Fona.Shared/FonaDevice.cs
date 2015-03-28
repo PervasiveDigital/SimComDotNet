@@ -8,8 +8,17 @@ using System.Threading;
 
 namespace Molarity.Hardare.AdafruitFona
 {
+    /// <summary>
+    /// Event handler for the FonaDevice.Ringing event. This event handler type is used to process
+    /// an incoming call or SMS text.
+    /// </summary>
+    /// <param name="sender">The FonaDevice that detected the incoming call or text</param>
+    /// <param name="args">Arguments describing the incoming call</param>
     public delegate void RingingEventHandler(object sender, RingingEventArgs args);
 
+    /// <summary>
+    /// This class supports interactions with the Adafruit Fona GSM/GPRS breakout board.
+    /// </summary>
     public partial class FonaDevice
     {
         private const string AT = "AT";
@@ -20,8 +29,13 @@ namespace Molarity.Hardare.AdafruitFona
         private const string GetImeiCommand = "AT+GSN";
 
         private readonly SerialPort _port;
-        private readonly object _lock = new object();
+        private readonly object _lockSendExpect = new object();
 
+        /// <summary>
+        /// This event is raised when an incoming call is detected. If an RI pin is available, the hardware indication is used.
+        /// Otherwise, this class will look for the string "RING" from the Fona device. When not using the hardware pin, you may
+        /// receive more than one ring indication for a single call because the board sends the RING string multiple times.
+        /// </summary>
         public event RingingEventHandler Ringing;
 
         /// <summary>
@@ -115,7 +129,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void SendAndExpect(string send, string expect, int timeout)
         {
-            lock (_lock)
+            lock (_lockSendExpect)
             {
                 DiscardBufferedInput();
                 WriteLine(send);
@@ -131,7 +145,7 @@ namespace Molarity.Hardare.AdafruitFona
         private string SendAndReadReply(string command, int timeout)
         {
             string response;
-            lock (_lock)
+            lock (_lockSendExpect)
             {
                 DiscardBufferedInput();
                 WriteLine(command);

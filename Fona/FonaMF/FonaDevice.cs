@@ -8,6 +8,11 @@ using Microsoft.SPOT.Hardware;
 
 namespace Molarity.Hardare.AdafruitFona
 {
+    /// <summary>
+    /// A delegate for handling notifications of a change in the power state of the Fona board.
+    /// </summary>
+    /// <param name="sender">The FonaDevice class that is sending this notification</param>
+    /// <param name="args">The arguments describing the new power state.</param>
     public delegate void PowerStateEventHandler(object sender, PowerStateEventArgs args);
 
     public partial class FonaDevice
@@ -16,17 +21,33 @@ namespace Molarity.Hardare.AdafruitFona
 
         private OutputPort _onOffKeyPin;
 
+        /// <summary>
+        /// An output port that is connected to the Key pin on the Fona board.
+        /// </summary>
         public OutputPort OnOffKeyPin
         {
             get { return _onOffKeyPin; }
             set { _onOffKeyPin = value; }
         }
 
+        /// <summary>
+        /// The current power state of the Fona device. True if it is powered on. False otherwise.
+        /// You must provide a value for PowerStatePin to detect the power state. You must provide 
+        /// a value for both PowerStatePin and OnOffKeyPin to change the power state of the Fona device.
+        /// </summary>
         public bool PowerState
         {
-            get { return this.PowerStatePin.Read(); }
+            get
+            {
+                if (PowerStatePin==null)
+                    throw new InvalidOperationException("You cannot detect the power state if you have not provided a value for PowerStatePin");
+
+                return this.PowerStatePin.Read();
+            }
             set
             {
+                if (PowerStatePin == null)
+                    throw new InvalidOperationException("You cannot change the power state if you have not provided a value for PowerStatePin");
                 if (this.OnOffKeyPin == null)
                     throw new InvalidOperationException("You cannot change the power state if you have not provided a value for the OnOffKeyPin");
 
@@ -58,6 +79,13 @@ namespace Molarity.Hardare.AdafruitFona
         }
 
         private OutputPort _resetPin;
+        /// <summary>
+        /// An output port that can be used to force a hardware reset of the Fona device.
+        /// This port should be connected to the RST pin on the Fona board.
+        /// You do not have to provide a value for the reset pin, although the Reset member
+        /// of this class will be less able to restore the board to a working state without
+        /// a value for the reset pin.
+        /// </summary>
         public OutputPort ResetPin
         {
             get { return _resetPin; }
@@ -69,6 +97,14 @@ namespace Molarity.Hardare.AdafruitFona
         }
 
         private InterruptPort _ringIndicatorPin;
+        /// <summary>
+        /// This pin will be used for hardware-level detection of incoming calls and texts.
+        /// The FonaDevice class can still detect incoming calls without this pin, but it
+        /// does so by detecting the string "RING" sent by the board, which is less reliable
+        /// and may result in multiple notifications for a single incoming call.
+        /// Using the hardware pin is more accurate than depending on detection of the RING string.
+        /// This port should be connected to the RI port on the Fona board.
+        /// </summary>
         public InterruptPort RingIndicatorPin
         {
             get { return _ringIndicatorPin; }
@@ -110,6 +146,14 @@ namespace Molarity.Hardare.AdafruitFona
         }
 
         private InputPort _powerStatePin;
+        /// <summary>
+        /// This pin is used to detect the current power state of the Fona board.
+        /// You do not have to provide a value for this pin, but you will not be
+        /// able to detect or control the power state of the Fona device without it.
+        /// This pin works together with the OnOffKeyPin to control the power state
+        /// of the Fona board. The PoweStatePin detects the power state and the OnOffKeyPin
+        /// is used to change the power state.
+        /// </summary>
         public InputPort PowerStatePin
         {
             get { return _powerStatePin; }
@@ -128,6 +172,12 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        /// <summary>
+        /// This event is raised when the current power state of the Fona board changes.
+        /// If the board is turned on or off either via the 'Key' button on the Fona board
+        /// or via the OnOffKeyPin, this event will be raised to indicate the change of
+        /// power state.
+        /// </summary>
         public event PowerStateEventHandler PowerStateChanged;
 
         private void PowerStatePinOnInterrupt(uint data1, uint data2, DateTime time)
