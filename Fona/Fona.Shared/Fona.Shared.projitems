@@ -11,5 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FonaDevice.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PowerStatusEventArgs.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)RingingEventArgs.cs" />
   </ItemGroup>
 </Project>
