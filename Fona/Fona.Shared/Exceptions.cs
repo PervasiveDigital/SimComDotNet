@@ -55,4 +55,11 @@ namespace Molarity.Hardare.AdafruitFona
         public string Expected { get { return _expected; } }
         public string Actual { get { return _actual; } }
     }
+
+    public class FonaCommandTimeout : Exception
+    {
+        public FonaCommandTimeout() : base("Timed out while waiting for a response from the Fona device")
+        {
+        }
+    }
 }

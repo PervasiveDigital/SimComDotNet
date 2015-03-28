@@ -13,5 +13,11 @@ namespace Molarity.Hardare.AdafruitFona
         private void DoHardwareReset()
         {
         }
+
+        private bool HardwareRingIndicationEnabled
+        {
+            get { return false; }
+        }
+
     }
 }

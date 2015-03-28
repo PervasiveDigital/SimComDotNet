@@ -14,5 +14,10 @@ namespace Molarity.Hardare.AdafruitFona
         {
             // No GPIO, so no hardware reset
         }
+
+        private bool HardwareRingIndicationEnabled
+        {
+            get { return false; }
+        }
     }
 }

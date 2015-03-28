@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.IO.Ports;
+using System.Text;
 using System.Threading;
 
 // Shared FonaDevice implementation
 
 namespace Molarity.Hardare.AdafruitFona
 {
+    public delegate void RingingEventHandler(object sender, RingingEventArgs args);
+
     public partial class FonaDevice
     {
         private const string AT = "AT";
@@ -15,22 +19,15 @@ namespace Molarity.Hardare.AdafruitFona
         private const string GetCcidCommand = "AT+CCID";
         private const string GetImeiCommand = "AT+GSN";
 
-#if MF_FRAMEWORK
-        private readonly Molarity.Hardware.AugmentedSerialPort _port;
-#else
         private readonly SerialPort _port;
-#endif
         private readonly object _lock = new object();
 
-#if MF_FRAMEWORK
-        public FonaDevice(Molarity.Hardware.AugmentedSerialPort port)
-        {
-#else
+        public event RingingEventHandler Ringing;
+
         public FonaDevice(SerialPort port)
         {
-#endif
             _port = port;
-            _port.NewLine = "\r\n";
+            _port.DataReceived += PortOnDataReceived;
             _port.Open();
         }
 
@@ -38,7 +35,7 @@ namespace Molarity.Hardare.AdafruitFona
         {
             DoHardwareReset();
 
-            _port.DiscardBufferedInput();
+            DiscardBufferedInput();
 
             // Synchronize auto-baud
             for (int i = 0; i < 3; ++i)
@@ -90,31 +87,31 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void SendAndExpect(string send, string expect)
         {
-            SendAndExpect(send, expect, TimeSpan.MaxValue);
+            SendAndExpect(send, expect, -1);
         }
 
-        private void SendAndExpect(string send, string expect, TimeSpan timeout)
+        private void SendAndExpect(string send, string expect, int timeout)
         {
             lock (_lock)
             {
-                _port.DiscardBufferedInput();
-                _port.WriteLine(send);
+                DiscardBufferedInput();
+                WriteLine(send);
                 Expect(new[] { send }, expect, timeout);
             }
         }
 
         private string SendAndReadReply(string command)
         {
-            return SendAndReadReply(command, TimeSpan.MaxValue);
+            return SendAndReadReply(command, -1);
         }
 
-        private string SendAndReadReply(string command, TimeSpan timeout)
+        private string SendAndReadReply(string command, int timeout)
         {
             string response;
             lock (_lock)
             {
-                _port.DiscardBufferedInput();
-                _port.WriteLine(command);
+                DiscardBufferedInput();
+                WriteLine(command);
                 do
                 {
                     response = GetReplyWithTimeout(timeout);
@@ -122,22 +119,23 @@ namespace Molarity.Hardare.AdafruitFona
             }
             return response;
         }
+
         private void Expect(string expect)
         {
-            Expect(null, expect, TimeSpan.MaxValue);
+            Expect(null, expect, -1);
         }
 
-        private void Expect(string expect, TimeSpan timeout)
+        private void Expect(string expect, int timeout)
         {
             Expect(null, expect, timeout);
         }
 
         private void Expect(string[] accept, string expect)
         {
-            Expect(accept, expect, TimeSpan.MaxValue);
+            Expect(accept, expect, -1);
         }
 
-        private void Expect(string[] accept, string expect, TimeSpan timeout)
+        private void Expect(string[] accept, string expect, int timeout)
         {
             if (accept == null)
                 accept = new[] {""};
@@ -173,10 +171,150 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
-        private string GetReplyWithTimeout(TimeSpan timeout)
+        private string GetReplyWithTimeout(int timeout)
         {
-            return _port.ReadLine();
+            string response = null;
+            bool haveNewData;
+            do
+            {
+                lock (_responseQueueLock)
+                {
+                    if (_responseQueue.Count > 0)
+                    {
+                        response = (string)_responseQueue[0];
+                        _responseQueue.RemoveAt(0);
+                    }
+                    else
+                    {
+                        _responseReceived.Reset();
+                    }
+                }
+
+                // If nothing was waiting in the queue, then wait for new data to arrive
+                haveNewData = false;
+                if (response == null)
+                    haveNewData = _responseReceived.WaitOne(timeout, false);
+
+            } while (response==null && haveNewData);
+
+            // We have received no data, and the WaitOne timed out
+            if (response == null && !haveNewData)
+            {
+                throw new FonaCommandTimeout();
+            }
+
+            return response;
         }
+
+        #region Serial Helpers
+
+        private readonly object _responseQueueLock = new object();
+        private readonly ArrayList _responseQueue = new ArrayList();
+        private readonly AutoResetEvent _responseReceived = new AutoResetEvent(false);
+        private string _buffer;
+
+        private void PortOnDataReceived(object sender, SerialDataReceivedEventArgs serialDataReceivedEventArgs)
+        {
+            if (serialDataReceivedEventArgs.EventType == SerialData.Chars)
+            {
+                string newInput = ReadExisting();
+                if (newInput != null && newInput.Length > 0)
+                {
+                    _buffer += newInput;
+                    var idxNewline = _buffer.IndexOf('\n');
+                    while (idxNewline!=-1)
+                    {
+                        var line = _buffer.Substring(0, idxNewline);
+                        _buffer = _buffer.Substring(idxNewline + 1);
+                        if (line[line.Length - 1] == '\r')
+                            line = line.Substring(0, line.Length - 1);
+                        if (line.ToUpper() == "RING")
+                        {
+                            // If we received a line with 'RING' on it, and the hardware ring pin
+                            //   is not enabled, then raise a ring event. In this case, the RING
+                            //   indication may be raised several times for a single incoming call.
+                            //   Otherwise, eat the RING string because it will just confuse us
+                            if (!this.HardwareRingIndicationEnabled)
+                            {
+                                RaiseTextRingEvent();
+                            }
+                        }
+                        else
+                        {
+                            if (line.Length > 0)
+                            {
+                                lock (_responseQueueLock)
+                                {
+                                    _responseQueue.Add(line);
+                                    _responseReceived.Set();
+                                }
+                            }
+                        }
+
+                        // See if we have another line buffered
+                        idxNewline = _buffer.IndexOf('\n');
+                    }
+                }
+            }
+        }
+
+        private void RaiseTextRingEvent()
+        {
+            if (this.Ringing != null)
+            {
+                this.Ringing(this,new RingingEventArgs(DateTime.UtcNow));
+            }
+        }
+
+        private byte[] ReadExistingBinary()
+        {
+            int arraySize = _port.BytesToRead;
+
+            byte[] received = new byte[arraySize];
+
+            _port.Read(received, 0, arraySize);
+
+            return received;
+        }
+
+        /// <summary>
+        /// Reads all immediately available bytes, based on the encoding, in both the stream and the input buffer of the SerialPort object.
+        /// </summary>
+        /// <returns>String</returns>
+        private string ReadExisting()
+        {
+            try
+            {
+                return new string(Encoding.UTF8.GetChars(this.ReadExistingBinary()));
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        private void DiscardBufferedInput()
+        {
+            lock (_responseQueueLock)
+            {
+                _port.DiscardInBuffer();
+                _responseQueue.Clear();
+                _buffer = "";
+                _responseReceived.Reset();
+            }
+        }
+
+        private void Write(string txt)
+        {
+            _port.Write(Encoding.UTF8.GetBytes(txt), 0, txt.Length);
+        }
+
+        private void WriteLine(string txt)
+        {
+            this.Write(txt + "\r\n");
+        }
+
+        #endregion
 
     }
 }

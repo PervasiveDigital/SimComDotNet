@@ -4,7 +4,6 @@ using System.Threading;
 using Microsoft.SPOT;
 using Microsoft.SPOT.Hardware;
 using Molarity.Hardare.AdafruitFona;
-using Molarity.Hardware;
 
 namespace MFFonaTest
 {
@@ -13,17 +12,22 @@ namespace MFFonaTest
         private static FonaDevice _fona;
         private readonly static OutputPort _onboardLed = new OutputPort(Cpu.Pin.GPIO_Pin14, false);
         private readonly static OutputPort _resetPin = new OutputPort(Cpu.Pin.GPIO_Pin4, true);
+        private readonly static OutputPort _keyPin = new OutputPort((Cpu.Pin)19, true);
         private readonly static InterruptPort _powerStatePin = new InterruptPort((Cpu.Pin)16, true, Port.ResistorMode.Disabled, Port.InterruptMode.InterruptEdgeBoth);
         private readonly static InterruptPort _ringIndicatorPin = new InterruptPort(Cpu.Pin.GPIO_Pin15, true, Port.ResistorMode.Disabled, Port.InterruptMode.InterruptEdgeLow);
 
         public static void Main()
         {
             // Bluetooth command interface on 'O Molecule' device. You may need to choose a different serial port for your device.
-            var fonaPort = new AugmentedSerialPort("COM2", 9600, Parity.None, 8, StopBits.One);
+            var fonaPort = new SerialPort("COM2", 9600, Parity.None, 8, StopBits.One);
             _fona = new FonaDevice(fonaPort);
             _fona.ResetPin = _resetPin;
             _fona.RingIndicatorPin = _ringIndicatorPin;
             _fona.PowerStatePin = _powerStatePin;
+            _fona.OnOffKeyPin = _keyPin;
+
+            if (!_fona.PowerState)
+                _fona.PowerState = true;
 
             _fona.Ringing += FonaOnRinging;
             _fona.PowerStateChanged += FonaOnPowerStateChanged;

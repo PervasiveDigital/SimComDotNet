@@ -8,12 +8,54 @@ using Microsoft.SPOT.Hardware;
 
 namespace Molarity.Hardare.AdafruitFona
 {
-    public delegate void RingingEventHandler(object sender, RingingEventArgs args);
     public delegate void PowerStateEventHandler(object sender, PowerStateEventArgs args);
 
     public partial class FonaDevice
     {
         private bool _fSuppressPowerStateDetection = false;
+
+        private OutputPort _onOffKeyPin;
+
+        public OutputPort OnOffKeyPin
+        {
+            get { return _onOffKeyPin; }
+            set { _onOffKeyPin = value; }
+        }
+
+        public bool PowerState
+        {
+            get { return this.PowerStatePin.Read(); }
+            set
+            {
+                if (this.OnOffKeyPin == null)
+                    throw new InvalidOperationException("You cannot change the power state if you have not provided a value for the OnOffKeyPin");
+
+                if (value)
+                {
+                    // Turn the fona on
+                    if (this.PowerState)
+                        return; // We are already on
+                    TogglePowerState();
+                }
+                else
+                {
+                    // Turn the Fona off
+                    if (!this.PowerState)
+                        return; // We are already off
+                    TogglePowerState();
+                }
+            }
+        }
+
+        private void TogglePowerState()
+        {
+            if (this.OnOffKeyPin == null)
+                throw new InvalidOperationException("You cannot change the power state if you have not provided a value for the OnOffKeyPin");
+
+            this.OnOffKeyPin.Write(false);
+            Thread.Sleep(2000);
+            this.OnOffKeyPin.Write(true);
+        }
 
         private OutputPort _resetPin;
         public OutputPort ResetPin
@@ -45,8 +87,6 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
-        public event RingingEventHandler Ringing;
-
         private void RingIndicatorPinOnInterrupt(uint data1, uint data2, DateTime time)
         {
             if (this.PowerStatePin != null)
@@ -62,6 +102,11 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 Ringing(this, new RingingEventArgs(time));
             }
+        }
+
+        private bool HardwareRingIndicationEnabled
+        {
+            get { return this.RingIndicatorPin != null; }
         }
 
         private InputPort _powerStatePin;
