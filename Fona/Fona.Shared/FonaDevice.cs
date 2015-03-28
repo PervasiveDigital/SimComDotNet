@@ -16,21 +16,20 @@ namespace Molarity.Hardare.AdafruitFona
         private const string GetImeiCommand = "AT+GSN";
 
 #if MF_FRAMEWORK
-        private readonly Molarity.Hardware.SerialPort _port;
+        private readonly Molarity.Hardware.AugmentedSerialPort _port;
 #else
         private readonly SerialPort _port;
 #endif
-        private object _lock = new object();
+        private readonly object _lock = new object();
 
+#if MF_FRAMEWORK
+        public FonaDevice(Molarity.Hardware.AugmentedSerialPort port)
+        {
+#else
         public FonaDevice(SerialPort port)
         {
-#if MF_FRAMEWORK
-            // The Micro Framework serial port is a bit impoverished.
-            //   Use a wrapper to give us consistent functionality across platforms.
-            _port = new Molarity.Hardware.SerialPort(port);
-#else
-            _port = port;
 #endif
+            _port = port;
             _port.NewLine = "\r\n";
             _port.Open();
         }
@@ -39,7 +38,7 @@ namespace Molarity.Hardare.AdafruitFona
         {
             DoHardwareReset();
 
-            _port.DiscardInBuffer();
+            _port.DiscardBufferedInput();
 
             // Synchronize auto-baud
             for (int i = 0; i < 3; ++i)
@@ -98,7 +97,7 @@ namespace Molarity.Hardare.AdafruitFona
         {
             lock (_lock)
             {
-                _port.DiscardInBuffer();
+                _port.DiscardBufferedInput();
                 _port.WriteLine(send);
                 Expect(new[] { send }, expect, timeout);
             }
@@ -114,7 +113,7 @@ namespace Molarity.Hardare.AdafruitFona
             string response;
             lock (_lock)
             {
-                _port.DiscardInBuffer();
+                _port.DiscardBufferedInput();
                 _port.WriteLine(command);
                 do
                 {
