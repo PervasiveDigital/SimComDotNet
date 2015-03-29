@@ -41,9 +41,20 @@ namespace MFFonaTest
             _fona.Ringing += FonaOnRinging;
             _fona.PowerStateChanged += FonaOnPowerStateChanged;
 
+            _fona.EnableCallerId = true;
+            _fona.CallerIdReceived += FonaOnCallerIdReceived;
             // Output some identifying information
             Debug.Print("IMEI = " + _fona.GetImei());
             Debug.Print("SIM CCID = " + _fona.GetSimCcid());
+
+            var status = _fona.GetNetworkStatus();
+            Debug.Print("We are currently connected to : " + status.RegistrationStatus.ToString());
+            if (status.LocationAreaCode!=null)
+                Debug.Print("   Location area code : " + status.LocationAreaCode);
+            if (status.CellId!=null)
+                Debug.Print("   Cell ID : " + status.CellId);
+
+            //Debug.Print("Current RSSI : " + _fona.GetRssi());
 
             bool state = true;
             int iCount = 0;
@@ -58,6 +69,13 @@ namespace MFFonaTest
                     iCount = 0;
                 }
             }
+        }
+
+        private static void FonaOnCallerIdReceived(object sender, CallerIdEventArgs args)
+        {
+            Debug.Print("Caller id information received:");
+            Debug.Print("   Number : " + args.Number);
+            Debug.Print("   Address type : " + args.AddressType);
         }
 
         private static void FonaOnPowerStateChanged(object sender, PowerStateEventArgs args)

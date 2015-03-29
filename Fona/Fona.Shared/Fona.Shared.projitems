@@ -9,6 +9,7 @@
     <Import_RootNamespace>Molarity.Hardare.AdafruitFona</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)CallerIdEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FonaDevice.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PowerStatusEventArgs.cs" />

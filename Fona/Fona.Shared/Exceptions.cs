@@ -106,7 +106,7 @@ namespace Molarity.Hardare.AdafruitFona
     /// <summary>
     /// A timeout ocurred while waiting for a response from the Fona device.
     /// </summary>
-    public class FonaCommandTimeout : Exception
+    public class FonaCommandTimeout : FonaException
     {
         /// <summary>
         /// Initialize a timeout exception, which indicates that a timeout ocurred while we 

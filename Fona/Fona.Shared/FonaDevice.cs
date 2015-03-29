@@ -17,12 +17,23 @@ namespace Molarity.Hardare.AdafruitFona
     public delegate void RingingEventHandler(object sender, RingingEventArgs args);
 
     /// <summary>
+    /// Event handler for caller id information. This event handler is called when incoming caller id information is available
+    /// </summary>
+    /// <param name="sender">The FonaDevice that detected the incoming call</param>
+    /// <param name="args">Detailed caller id information</param>
+    public delegate void CallerIdEventHandler(object sender, CallerIdEventArgs args);
+
+    /// <summary>
     /// This class supports interactions with the Adafruit Fona GSM/GPRS breakout board.
     /// </summary>
     public partial class FonaDevice
     {
         private const string AT = "AT";
         private const string OK = "OK";
+        private const string DialCommand = "ATD";
+        private const string RedialCommand = "ATDL";
+        private const string HangUpCommand = "ATH";
+        private const string AnswerCommand = "ATA";
         private const string EchoOffCommand = "ATE0";
         private const string UnlockCommand = "AT+CPIN=";
         private const string GetCcidCommand = "AT+CCID";
@@ -33,9 +44,51 @@ namespace Molarity.Hardare.AdafruitFona
         private const string ReadLocalTimeStampEnable = "AT+CLTS?";
         private const string ReadLocalTimeStampEnableReply = "+CLTS: ";
         private const string WriteNvram = "AT&W";
+        private const string SetEnableSmsRingIndicator = "AT+CFGRI=";
+        private const string ReadEnableSmsRingIndicator = "AT+CFGRI?";
+        private const string ReadEnableSmsRingIndicatorReply = "+CFGRI: ";
+        private const string ReadNetworkStatus = "AT+CREG?";
+        private const string ReadNetworkStatusReply = "+CREG: ";
+        private const string ReadRssi = "AT+CSQ";
+        private const string ReadRssiReply = "+CSQ: ";
+        private const string SetAudioChannel = "AT+CHFA=";
+        private const string ReadAudioChannel = "AT+CHFA?";
+        private const string ReadAudioChannelReply = "+CHFA: ";
+        private const string SetVolume = "AT+CLVL=";
+        private const string ReadVolume = "AT+CLVL?";
+        private const string ReadVolumeReply = "+CLVL: ";
+        private const string SetEnableCallerId = "AT+CLIP=";
+        private const string ReadEnableCallerId = "AT+CLIP?";
+        private const string ReadEnableCallerIdReply = "+CLIP: ";
+
 
         private readonly SerialPort _port;
         private readonly object _lockSendExpect = new object();
+
+        /// <summary>
+        /// Registration status is used to indicate the relationship that the Fona device has with a cell provider
+        /// </summary>
+        public enum RegistrationStatus
+        {
+            NotRegistered = 0,
+            Home = 1,
+            Searching = 2,
+            RegistrationDenied = 3,
+            Unknown = 4,
+            Roaming = 5
+        }
+
+        /// <summary>
+        /// The NetworkStatus structure is used to indicate the current connection status of the Fona device with respect to a network provider
+        /// The LocationAreaCode and CellId are only valid for certain values of RegistrationStatus.
+        /// </summary>
+        public struct NetworkStatus
+        {
+            public RegistrationStatus RegistrationStatus;
+            public string LocationAreaCode;
+            public string CellId;
+        }
+
 
         /// <summary>
         /// This event is raised when an incoming call is detected. If an RI pin is available, the hardware indication is used.
@@ -43,6 +96,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// receive more than one ring indication for a single call because the board sends the RING string multiple times.
         /// </summary>
         public event RingingEventHandler Ringing;
+
+        /// <summary>
+        /// This event is raised when caller id information is presented for an incoming call.
+        /// Note that you may receive multiple caller id notifications for a single incoming call.
+        /// </summary>
+        public event CallerIdEventHandler CallerIdReceived;
 
         /// <summary>
         /// Create a FonaDevice class for use in communicating with the Adafruit Fona GSM/GPRS breakout board.
@@ -70,7 +129,7 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 try
                 {
-                    SendAndExpect(AT, OK);
+                    SendAndExpect(AT, OK, 500);
                     Thread.Sleep(100);
                 }
                 catch (FonaException)
@@ -184,7 +243,139 @@ namespace Molarity.Hardare.AdafruitFona
                 SendAndExpect(SetLocalTimeStampEnable + (value ? "1" : "0"), OK);
                 SendAndExpect(WriteNvram, OK);
             }
+        }
 
+        /// <summary>
+        /// This value is true if the RI pin will transition when an SMS is received
+        /// </summary>
+        public bool EnableRingIndicationForSms
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadEnableSmsRingIndicator, ReadEnableSmsRingIndicatorReply, false);
+                return (int.Parse(reply) != 0);
+            }
+            set
+            {
+                if (value == this.RtcEnabled)
+                    return;
+                SendAndExpect(SetEnableSmsRingIndicator + (value ? "1" : "0"), OK);
+            }
+        }
+
+        /// <summary>
+        /// Return the current network registration status
+        /// </summary>
+        /// <returns>A NetworkStatus structure indicating the current registration status</returns>
+        public NetworkStatus GetNetworkStatus()
+        {
+            NetworkStatus result = new NetworkStatus();
+
+            var tokens = SendCommandAndParseReply(ReadNetworkStatus, ReadNetworkStatusReply, ',', false);
+            if (tokens.Length < 2)
+                throw new FonaException("Bad reply to ReadNetworkStatus command");
+            var n = int.Parse(tokens[0]);
+            result.RegistrationStatus = (RegistrationStatus)int.Parse(tokens[1]);
+            if (tokens.Length > 2)
+                result.LocationAreaCode = tokens[3];
+            if (tokens.Length > 3)
+                result.CellId = tokens[4];
+
+            return result;
+        }
+
+        /// <summary>
+        /// Return an code for the current received signal string indication.
+        /// 0 is -115Dbm and 31 is -52Dbm or less.  99 is "not known or not detectable"
+        /// </summary>
+        /// <returns></returns>
+        public int GetRssi()
+        {
+            var tokens = SendCommandAndParseReply(ReadRssi, ReadRssiReply, ',', false);
+            return int.Parse(tokens[0]);
+        }
+
+        /// <summary>
+        /// If false, the Fona will use the headset jack.  If true, the Fona will use the external audio channels.
+        /// </summary>
+        public bool UseExternalAudio
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadAudioChannel, ReadAudioChannelReply, false);
+                return int.Parse(reply) == 1;
+            }
+            set
+            {
+                SendAndExpect(SetAudioChannel + (value ? "1" : "0"),OK);
+            }
+        }
+
+        /// <summary>
+        /// Set the speaker volume. Values are between 0 (quiet) and 100 (loud)
+        /// </summary>
+        public int Volume
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadVolume, ReadVolumeReply, false);
+                return int.Parse(reply);
+            }
+            set
+            {
+                if (value < 0 || value > 100)
+                    throw new ArgumentException("value must be between 0 and 100");
+                SendAndExpect(SetVolume + value.ToString(), OK);                
+            }
+        }
+
+        /// <summary>
+        /// Dial a number to initiate a voice call
+        /// </summary>
+        /// <param name="number">The number to call</param>
+        public void CallPhone(string number)
+        {
+            SendAndExpect(DialCommand + number + ";", OK);
+        }
+
+        /// <summary>
+        /// Disconnect an active voice call
+        /// </summary>
+        public void HangUp()
+        {
+            SendAndExpect(HangUpCommand, OK);
+        }
+
+        /// <summary>
+        /// Answer an incoming voice call
+        /// </summary>
+        public void AnswerIncomingCall()
+        {
+            SendAndExpect(AnswerCommand, OK);
+        }
+
+        /// <summary>
+        /// Redial the last outbound number
+        /// </summary>
+        public void Redial()
+        {
+            SendAndExpect(RedialCommand, OK);
+        }
+
+        /// <summary>
+        /// Enable caller id for incoming calls
+        /// </summary>
+        public bool EnableCallerId
+        {
+            get
+            {
+                var tokens = SendCommandAndParseReply(ReadEnableCallerId, ReadEnableCallerIdReply, ',', false);
+                return int.Parse(tokens[0]) == 1;
+            }
+            set
+            {
+                SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
+            }
         }
 
         #region Sending Commands
@@ -385,6 +576,11 @@ namespace Molarity.Hardare.AdafruitFona
                                 RaiseTextRingEvent();
                             }
                         }
+                        else if (line.IndexOf("+CLIP: ") == 0)
+                        {
+                            // caller id information
+                            RaiseCallerIdEvent(line.Substring(7));
+                        }
                         else
                         {
                             if (line.Length > 0)
@@ -411,6 +607,19 @@ namespace Molarity.Hardare.AdafruitFona
                 this.Ringing(this,new RingingEventArgs(DateTime.UtcNow));
             }
         }
+
+        private void RaiseCallerIdEvent(string callerId)
+        {
+            var tokens = callerId.Split(',');
+            if (tokens.Length > 1)
+            {
+                if (this.CallerIdReceived != null)
+                {
+                    this.CallerIdReceived(this, new CallerIdEventArgs(tokens[0], (AddressType) int.Parse(tokens[1])));
+                }
+            }
+        }
+
 
         private byte[] ReadExistingBinary()
         {
