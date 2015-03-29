@@ -5,13 +5,13 @@ namespace Molarity.Hardare.AdafruitFona
     /// <summary>
     /// Used to single an exception in the FonaDevice class
     /// </summary>
-    public abstract class FonaException : Exception
+    public class FonaException : Exception
     {
         /// <summary>
         /// Initialize a Fona exception
         /// </summary>
         /// <param name="message">Message indicating the reason for the exception</param>
-        protected FonaException(string message) : base(message)
+        public FonaException(string message) : base(message)
         {
         }
 
@@ -20,7 +20,7 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         /// <param name="message">A message describing the exception</param>
         /// <param name="inner">An inner exception that probably led to this exception being thrown</param>
-        protected FonaException(string message, Exception inner) : base(message, inner)
+        public FonaException(string message, Exception inner) : base(message, inner)
         {
         }
     }

@@ -26,23 +26,37 @@ namespace MFFonaTest
             _fona.PowerStatePin = _powerStatePin;
             _fona.OnOffKeyPin = _keyPin;
 
+            // Make sure we are powered on
             if (!_fona.PowerState)
                 _fona.PowerState = true;
 
+            // Make sure we get the local tower time, if available
+            if (!_fona.RtcEnabled)
+                _fona.RtcEnabled = true;
+
+            // Reset the device to a known state
+            _fona.Reset();
+
+            // Watch for ringing phones and manual changes to the power state
             _fona.Ringing += FonaOnRinging;
             _fona.PowerStateChanged += FonaOnPowerStateChanged;
 
-            _fona.Reset();
-
+            // Output some identifying information
             Debug.Print("IMEI = " + _fona.GetImei());
             Debug.Print("SIM CCID = " + _fona.GetSimCcid());
 
             bool state = true;
+            int iCount = 0;
             while (true)
             {
                 _onboardLed.Write(state);
                 state = !state;
                 Thread.Sleep(500);
+                if (++iCount == 20)
+                {
+                    Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
+                    iCount = 0;
+                }
             }
         }
 

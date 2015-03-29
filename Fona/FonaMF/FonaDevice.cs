@@ -104,6 +104,7 @@ namespace Molarity.Hardare.AdafruitFona
         /// and may result in multiple notifications for a single incoming call.
         /// Using the hardware pin is more accurate than depending on detection of the RING string.
         /// This port should be connected to the RI port on the Fona board.
+        /// This port should be configured with InterruptEdgeLow.
         /// </summary>
         public InterruptPort RingIndicatorPin
         {
@@ -152,7 +153,7 @@ namespace Molarity.Hardare.AdafruitFona
         /// able to detect or control the power state of the Fona device without it.
         /// This pin works together with the OnOffKeyPin to control the power state
         /// of the Fona board. The PoweStatePin detects the power state and the OnOffKeyPin
-        /// is used to change the power state.
+        /// is used to change the power state. The pin should be configured with InterruptEdgeBoth.
         /// </summary>
         public InputPort PowerStatePin
         {
@@ -215,6 +216,5 @@ namespace Molarity.Hardare.AdafruitFona
                 }
             }
         }
-
     }
 }

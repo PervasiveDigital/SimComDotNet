@@ -27,6 +27,12 @@ namespace Molarity.Hardare.AdafruitFona
         private const string UnlockCommand = "AT+CPIN=";
         private const string GetCcidCommand = "AT+CCID";
         private const string GetImeiCommand = "AT+GSN";
+        private const string ReadRtcCommand = "AT+CCLK?";
+        private const string ReadRtcReply = "+CCLK: ";
+        private const string SetLocalTimeStampEnable = "AT+CLTS=";
+        private const string ReadLocalTimeStampEnable = "AT+CLTS?";
+        private const string ReadLocalTimeStampEnableReply = "+CLTS: ";
+        private const string WriteNvram = "AT&W";
 
         private readonly SerialPort _port;
         private readonly object _lockSendExpect = new object();
@@ -104,7 +110,7 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>SIM CCID</returns>
         public string GetSimCcid()
         {
-            var response = SendAndReadReply(GetCcidCommand);
+            var response = SendCommandAndReadReply(GetCcidCommand);
             Expect(OK);
             return response;
         }
@@ -115,9 +121,70 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>IMEI code from the Fona device</returns>
         public string GetImei()
         {
-            var response = SendAndReadReply(GetImeiCommand);
+            var response = SendCommandAndReadReply(GetImeiCommand);
             Expect(OK);
             return response;
+        }
+
+        /// <summary>
+        /// Read the current time from the real-time clock on the Fona
+        /// </summary>
+        /// <returns>The current date and time</returns>
+        public DateTime GetCurrentTime()
+        {
+            var tokens = SendCommandAndParseReply(ReadRtcCommand, ReadRtcReply, ',', true);
+
+            // We should have two tokens - a date part and a time part
+            if (tokens.Length!=2)
+                throw new FonaCommandException(ReadRtcReply, ReadRtcReply, tokens[0]);
+
+            var dateTokens = tokens[0].Split('/');
+            if (dateTokens.Length!=3)
+                throw new FonaException("Bad date format");
+            var year = 2000 + int.Parse(dateTokens[0]);
+            var month = int.Parse(dateTokens[1]);
+            var day = int.Parse(dateTokens[2]);
+
+            var timeTokens = tokens[1].Split(':');
+            if (timeTokens.Length!=3)
+                throw new FonaException("Bad time format");
+            var temp = timeTokens[2].Split('+');
+            timeTokens[2] = temp[0];
+            int tz = 0;
+            if (temp.Length==2)
+                tz = int.Parse(temp[1]);
+            var hour = int.Parse(timeTokens[0]);
+            var minute = int.Parse(timeTokens[1]);
+            var second = int.Parse(timeTokens[2]);
+
+            var result = new DateTime(year,month,day,hour,minute,second);
+            //result.AddHours(tz);
+            return new DateTime(result.Ticks, DateTimeKind.Local);
+        }
+
+        /// <summary>
+        /// Check or set the current state of the local timestamp setting.
+        /// When this is set, the Fona will return the network-provided local time.
+        /// When not set, the time that is returned is based on a manual setting and not
+        /// the network provider's cell-tower time. Note that after changing the setting,
+        /// you must reset the device by calling Reset (with a hardware reset pin defined)
+        /// or power the Fona device off and then on again.
+        /// </summary>
+        public bool RtcEnabled
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadLocalTimeStampEnable, ReadLocalTimeStampEnableReply, false);
+                return (int.Parse(reply) != 0);
+            }
+            set
+            {
+                if (value == this.RtcEnabled)
+                    return;
+                SendAndExpect(SetLocalTimeStampEnable + (value ? "1" : "0"), OK);
+                SendAndExpect(WriteNvram, OK);
+            }
+
         }
 
         #region Sending Commands
@@ -137,12 +204,49 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
-        private string SendAndReadReply(string command)
+        private string SendCommandAndReadReply(string command, string replyPrefix, bool replyIsQuoted)
         {
-            return SendAndReadReply(command, -1);
+            return SendCommandAndReadReply(command, replyPrefix, replyIsQuoted, -1);
         }
 
-        private string SendAndReadReply(string command, int timeout)
+        private string SendCommandAndReadReply(string command, string replyPrefix, bool replyIsQuoted, int timeout)
+        {
+            var reply = SendCommandAndReadReply(command, -1);
+            if (reply.IndexOf(replyPrefix) != 0)
+            {
+                throw new FonaCommandException(command, replyPrefix, reply);
+            }
+            reply = reply.Substring(replyPrefix.Length);
+            if (replyIsQuoted)
+            {
+                reply = reply.Trim();
+                var idxQuote = reply.IndexOf('"');
+                if (idxQuote == 0)
+                    reply = reply.Substring(1);
+                idxQuote = reply.LastIndexOf('"');
+                if (idxQuote == reply.Length - 1)
+                    reply = reply.Substring(0, reply.Length - 1);
+            }
+            return reply;
+        }
+
+        private string[] SendCommandAndParseReply(string command, string replyPrefix, char delimiter, bool replyIsQuoted)
+        {
+            return SendCommandAndParseReply(command, replyPrefix, delimiter, replyIsQuoted, -1);
+        }
+
+        private string[] SendCommandAndParseReply(string command, string replyPrefix, char delimiter, bool replyIsQuoted, int timeout)
+        {
+            var reply = SendCommandAndReadReply(command, replyPrefix, replyIsQuoted, timeout);
+            return reply.Split(delimiter);
+        }
+
+        private string SendCommandAndReadReply(string command)
+        {
+            return SendCommandAndReadReply(command, -1);
+        }
+
+        private string SendCommandAndReadReply(string command, int timeout)
         {
             string response;
             lock (_lockSendExpect)
