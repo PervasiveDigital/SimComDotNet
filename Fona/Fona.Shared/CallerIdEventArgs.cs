@@ -10,10 +10,10 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public enum AddressType
     {
-        Unknown,
-        National,
-        International,
-        NetworkSpecific
+        Unknown = 129,
+        National = 161,
+        International = 145,
+        NetworkSpecific = 177
     }
 
     /// <summary>

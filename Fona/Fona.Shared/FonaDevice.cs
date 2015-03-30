@@ -24,10 +24,18 @@ namespace Molarity.Hardare.AdafruitFona
     public delegate void CallerIdEventHandler(object sender, CallerIdEventArgs args);
 
     /// <summary>
+    /// Event handler for incoming Sms messages.
+    /// </summary>
+    /// <param name="sender">The FonaDevice that detected the incoming call</param>
+    /// <param name="args">Detailed information about the received sms message.</param>
+    public delegate void SmsMessageReceivedEventHandler(object sender, SmsMessageReceivedEventArgs args);
+
+    /// <summary>
     /// This class supports interactions with the Adafruit Fona GSM/GPRS breakout board.
     /// </summary>
     public partial class FonaDevice
     {
+        private const int DefaultCommandTimeout = 10000;
         private const string AT = "AT";
         private const string OK = "OK";
         private const string DialCommand = "ATD";
@@ -51,6 +59,10 @@ namespace Molarity.Hardare.AdafruitFona
         private const string ReadNetworkStatusReply = "+CREG: ";
         private const string ReadRssi = "AT+CSQ";
         private const string ReadRssiReply = "+CSQ: ";
+        private const string ReadBatteryState = "AT+CBC";
+        private const string ReadBatteryStateReply = "+CBC: ";
+        private const string ReadAdcVoltage = "AT+CADC?";
+        private const string ReadAdcVoltageReply = "+CADC: ";
         private const string SetAudioChannel = "AT+CHFA=";
         private const string ReadAudioChannel = "AT+CHFA?";
         private const string ReadAudioChannelReply = "+CHFA: ";
@@ -60,7 +72,15 @@ namespace Molarity.Hardare.AdafruitFona
         private const string SetEnableCallerId = "AT+CLIP=";
         private const string ReadEnableCallerId = "AT+CLIP?";
         private const string ReadEnableCallerIdReply = "+CLIP: ";
-
+        private const string SetEnableSmsNotification = "AT+CNMI=";
+        private const string ReadEnableSmsNotification = "AT+CNMI?";
+        private const string ReadEnableSmsNotificationReply = "+CNMI: ";
+        private const string ReadSmsMessageCount = "AT+CPMS?";
+        private const string ReadSmsMessageCountReply = "+CPMS: ";
+        private const string SetSmsMode = "AT+CMGF=";
+        private const string SetSmsTextModeOutput = "AT+CSDH=";
+        private const string ReadSmsMessage = "AT+CMGR=";
+        private const string ReadSmsMessageReply = "+CMGR: ";
 
         private readonly SerialPort _port;
         private readonly object _lockSendExpect = new object();
@@ -102,6 +122,13 @@ namespace Molarity.Hardare.AdafruitFona
         /// Note that you may receive multiple caller id notifications for a single incoming call.
         /// </summary>
         public event CallerIdEventHandler CallerIdReceived;
+
+        /// <summary>
+        /// This event is raised when a new SMS message is received, if you have set EnableSmsNotification
+        /// to true. You do not need to set EnableRingIndicationForSms because the RI line is not used by
+        /// this code to detect new SMS messages.
+        /// </summary>
+        public event SmsMessageReceivedEventHandler SmsMessageReceived;
 
         /// <summary>
         /// Create a FonaDevice class for use in communicating with the Adafruit Fona GSM/GPRS breakout board.
@@ -191,32 +218,38 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>The current date and time</returns>
         public DateTime GetCurrentTime()
         {
-            var tokens = SendCommandAndParseReply(ReadRtcCommand, ReadRtcReply, ',', true);
+            var reply = SendCommandAndReadReply(ReadRtcCommand, ReadRtcReply, true);
+            Expect(OK);
 
+            var tokens = reply.Split(',');
             // We should have two tokens - a date part and a time part
-            if (tokens.Length!=2)
+            if (tokens.Length != 2)
                 throw new FonaCommandException(ReadRtcReply, ReadRtcReply, tokens[0]);
 
-            var dateTokens = tokens[0].Split('/');
-            if (dateTokens.Length!=3)
+            return ParseDateString(tokens[0], tokens[1]);
+        }
+
+        private DateTime ParseDateString(string dateString, string timeString)
+        {
+            var dateTokens = dateString.Split('/');
+            if (dateTokens.Length != 3)
                 throw new FonaException("Bad date format");
             var year = 2000 + int.Parse(dateTokens[0]);
             var month = int.Parse(dateTokens[1]);
             var day = int.Parse(dateTokens[2]);
 
-            var timeTokens = tokens[1].Split(':');
-            if (timeTokens.Length!=3)
+            var timeTokens = timeString.Split(':');
+            if (timeTokens.Length != 3)
                 throw new FonaException("Bad time format");
             var temp = timeTokens[2].Split('+');
             timeTokens[2] = temp[0];
             int tz = 0;
-            if (temp.Length==2)
+            if (temp.Length == 2)
                 tz = int.Parse(temp[1]);
             var hour = int.Parse(timeTokens[0]);
             var minute = int.Parse(timeTokens[1]);
             var second = int.Parse(timeTokens[2]);
-
-            var result = new DateTime(year,month,day,hour,minute,second);
+            var result = new DateTime(year, month, day, hour, minute, second);
             //result.AddHours(tz);
             return new DateTime(result.Ticks, DateTimeKind.Local);
         }
@@ -234,6 +267,7 @@ namespace Molarity.Hardare.AdafruitFona
             get
             {
                 var reply = SendCommandAndReadReply(ReadLocalTimeStampEnable, ReadLocalTimeStampEnableReply, false);
+                Expect(OK);
                 return (int.Parse(reply) != 0);
             }
             set
@@ -246,24 +280,6 @@ namespace Molarity.Hardare.AdafruitFona
         }
 
         /// <summary>
-        /// This value is true if the RI pin will transition when an SMS is received
-        /// </summary>
-        public bool EnableRingIndicationForSms
-        {
-            get
-            {
-                var reply = SendCommandAndReadReply(ReadEnableSmsRingIndicator, ReadEnableSmsRingIndicatorReply, false);
-                return (int.Parse(reply) != 0);
-            }
-            set
-            {
-                if (value == this.RtcEnabled)
-                    return;
-                SendAndExpect(SetEnableSmsRingIndicator + (value ? "1" : "0"), OK);
-            }
-        }
-
-        /// <summary>
         /// Return the current network registration status
         /// </summary>
         /// <returns>A NetworkStatus structure indicating the current registration status</returns>
@@ -272,6 +288,7 @@ namespace Molarity.Hardare.AdafruitFona
             NetworkStatus result = new NetworkStatus();
 
             var tokens = SendCommandAndParseReply(ReadNetworkStatus, ReadNetworkStatusReply, ',', false);
+            Expect(OK);
             if (tokens.Length < 2)
                 throw new FonaException("Bad reply to ReadNetworkStatus command");
             var n = int.Parse(tokens[0]);
@@ -292,7 +309,72 @@ namespace Molarity.Hardare.AdafruitFona
         public int GetRssi()
         {
             var tokens = SendCommandAndParseReply(ReadRssi, ReadRssiReply, ',', false);
+            Expect(OK);
             return int.Parse(tokens[0]);
+        }
+
+        /// <summary>
+        /// Read the battery voltage
+        /// </summary>
+        /// <returns>Battery voltage in mV</returns>
+        public int GetBatteryVoltage()
+        {
+            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+            Expect(OK);
+            return int.Parse(tokens[2]);
+        }
+
+        /// <summary>
+        /// The BatteryChargeState is used to describe the charging/discharging status of the battery
+        /// </summary>
+        public enum BatteryChargeState
+        {
+            /// <summary>
+            /// The battery is not charging and the Fona is running on battery power
+            /// </summary>
+            Discharging = 0,
+            /// <summary>
+            /// The battery is charging
+            /// </summary>
+            Charging = 1,
+            /// <summary>
+            /// The battery is not charging and the Fona is running on USB power
+            /// </summary>
+            FullyCharged = 2
+        }
+
+        /// <summary>
+        /// Return the current battery charge state (discharging, charging, etc)
+        /// </summary>
+        /// <returns>BatteryChargeState enum identifying the current charging state</returns>
+        public BatteryChargeState GetBatteryChargeState()
+        {
+            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+            Expect(OK);
+            return (BatteryChargeState)int.Parse(tokens[0]);
+        }
+
+
+        /// <summary>
+        /// Get the current battery charge state (as a percentage of fully charged)
+        /// </summary>
+        /// <returns>The current charge state as a percentage (*100) of fully charged</returns>
+        public int GetBatteryChargePercentage()
+        {
+            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+            Expect(OK);
+            return int.Parse(tokens[1]);
+        }
+
+        /// <summary>
+        /// Read the analog-to-digital-converter voltage
+        /// </summary>
+        /// <returns>ADC voltage in mV</returns>
+        public int GetAdcVoltage()
+        {
+            var tokens = SendCommandAndParseReply(ReadAdcVoltage, ReadAdcVoltageReply, ',', false);
+            Expect(OK);
+            return int.Parse(tokens[1]);
         }
 
         /// <summary>
@@ -303,6 +385,7 @@ namespace Molarity.Hardare.AdafruitFona
             get
             {
                 var reply = SendCommandAndReadReply(ReadAudioChannel, ReadAudioChannelReply, false);
+                Expect(OK);
                 return int.Parse(reply) == 1;
             }
             set
@@ -319,6 +402,7 @@ namespace Molarity.Hardare.AdafruitFona
             get
             {
                 var reply = SendCommandAndReadReply(ReadVolume, ReadVolumeReply, false);
+                Expect(OK);
                 return int.Parse(reply);
             }
             set
@@ -370,6 +454,7 @@ namespace Molarity.Hardare.AdafruitFona
             get
             {
                 var tokens = SendCommandAndParseReply(ReadEnableCallerId, ReadEnableCallerIdReply, ',', false);
+                Expect(OK);
                 return int.Parse(tokens[0]) == 1;
             }
             set
@@ -378,11 +463,85 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        //TODO: support CMGL to download all SMS messages
+
+        /// <summary>
+        /// This value is true if the RI pin will transition when an SMS is received. This is
+        /// not required for enabling SMS notification. If all you need is notification of new
+        /// incoming messages, use EnableSmsNotification=true and provide a delegate for SmsMessageReceived
+        /// </summary>
+        public bool EnableRingIndicationForSms
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadEnableSmsRingIndicator, ReadEnableSmsRingIndicatorReply, false);
+                Expect(OK);
+                return (int.Parse(reply) != 0);
+            }
+            set
+            {
+                SendAndExpect(SetEnableSmsRingIndicator + (value ? "1" : "0"), OK);
+            }
+        }
+
+        public bool EnableSmsNotification
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadEnableSmsNotification, ReadEnableSmsNotificationReply, false);
+                Expect(OK);
+                return (int.Parse(reply) != 0);
+            }
+            set
+            {
+                // Use a mode that will buffer the notification if we are using the data channel (e.g., PPP connection)
+                // The ,1 indicates that we want the index of the message returned too.
+                SendAndExpect(SetEnableSmsNotification + (value ? "2,1" : "0"), OK);
+            }
+        }
+
+        public int GetSmsMessageCount()
+        {
+            SendAndExpect(SetSmsMode + "1", OK);
+            var tokens = SendCommandAndParseReply(ReadSmsMessageCount, ReadSmsMessageCountReply, ',', false);
+            Expect(OK);
+            if (tokens.Length!=9)
+                throw new FonaException("Bad response - expected 9 tokens and received " + tokens.Length);
+
+            // Return the amount of used storage for reading messages
+            return int.Parse(tokens[1]);
+        }
+
+        public SmsMessage GetSmsMessage(int index)
+        {
+            // Text mode
+            SendAndExpect(SetSmsMode + "1", OK);
+
+            // Show all parameters
+            SendAndExpect(SetSmsTextModeOutput + "1", OK);
+
+            var tokens = SendCommandAndParseReply(ReadSmsMessage + index, ReadSmsMessageReply, ',', false);
+            var body = GetReplyWithTimeout(DefaultCommandTimeout);
+            Expect(OK);
+
+            // tokens 3 and 4 are a date and time with an embedded quote, which our ParseReply code splits in two - remove the quote remnants
+            if (tokens[3][0] == '"')
+                tokens[3] = tokens[3].Substring(1);
+            if (tokens[4][tokens[4].Length - 1] == '"')
+                tokens[4] = tokens[4].Substring(0, tokens[4].Length - 1);
+
+            return new SmsMessage(SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]), (AddressType)int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]) , body);
+        }
+
+        //CMGD
+
+        //HTTP stuff
+
         #region Sending Commands
 
         private void SendAndExpect(string send, string expect)
         {
-            SendAndExpect(send, expect, -1);
+            SendAndExpect(send, expect, DefaultCommandTimeout);
         }
 
         private void SendAndExpect(string send, string expect, int timeout)
@@ -397,12 +556,12 @@ namespace Molarity.Hardare.AdafruitFona
 
         private string SendCommandAndReadReply(string command, string replyPrefix, bool replyIsQuoted)
         {
-            return SendCommandAndReadReply(command, replyPrefix, replyIsQuoted, -1);
+            return SendCommandAndReadReply(command, replyPrefix, replyIsQuoted, DefaultCommandTimeout);
         }
 
         private string SendCommandAndReadReply(string command, string replyPrefix, bool replyIsQuoted, int timeout)
         {
-            var reply = SendCommandAndReadReply(command, -1);
+            var reply = SendCommandAndReadReply(command, DefaultCommandTimeout);
             if (reply.IndexOf(replyPrefix) != 0)
             {
                 throw new FonaCommandException(command, replyPrefix, reply);
@@ -410,20 +569,14 @@ namespace Molarity.Hardare.AdafruitFona
             reply = reply.Substring(replyPrefix.Length);
             if (replyIsQuoted)
             {
-                reply = reply.Trim();
-                var idxQuote = reply.IndexOf('"');
-                if (idxQuote == 0)
-                    reply = reply.Substring(1);
-                idxQuote = reply.LastIndexOf('"');
-                if (idxQuote == reply.Length - 1)
-                    reply = reply.Substring(0, reply.Length - 1);
+                reply = Unquote(reply);
             }
             return reply;
         }
 
         private string[] SendCommandAndParseReply(string command, string replyPrefix, char delimiter, bool replyIsQuoted)
         {
-            return SendCommandAndParseReply(command, replyPrefix, delimiter, replyIsQuoted, -1);
+            return SendCommandAndParseReply(command, replyPrefix, delimiter, replyIsQuoted, DefaultCommandTimeout);
         }
 
         private string[] SendCommandAndParseReply(string command, string replyPrefix, char delimiter, bool replyIsQuoted, int timeout)
@@ -434,7 +587,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private string SendCommandAndReadReply(string command)
         {
-            return SendCommandAndReadReply(command, -1);
+            return SendCommandAndReadReply(command, DefaultCommandTimeout);
         }
 
         private string SendCommandAndReadReply(string command, int timeout)
@@ -458,7 +611,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void Expect(string expect)
         {
-            Expect(null, expect, -1);
+            Expect(null, expect, DefaultCommandTimeout);
         }
 
         private void Expect(string expect, int timeout)
@@ -468,7 +621,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void Expect(string[] accept, string expect)
         {
-            Expect(accept, expect, -1);
+            Expect(accept, expect, DefaultCommandTimeout);
         }
 
         private void Expect(string[] accept, string expect, int timeout)
@@ -581,6 +734,11 @@ namespace Molarity.Hardare.AdafruitFona
                             // caller id information
                             RaiseCallerIdEvent(line.Substring(7));
                         }
+                        else if (line.IndexOf("+CMTI: ") == 0)
+                        {
+                            // caller id information
+                            RaiseSmsReceivedEvent(line.Substring(7));
+                        }
                         else
                         {
                             if (line.Length > 0)
@@ -615,11 +773,25 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 if (this.CallerIdReceived != null)
                 {
-                    this.CallerIdReceived(this, new CallerIdEventArgs(tokens[0], (AddressType) int.Parse(tokens[1])));
+                    this.CallerIdReceived(this, new CallerIdEventArgs(Unquote(tokens[0]), (AddressType)int.Parse(tokens[1])));
                 }
             }
         }
 
+        private void RaiseSmsReceivedEvent(string status)
+        {
+            var tokens = status.Split(',');
+            if (tokens.Length > 1)
+            {
+                var storageCode = tokens[0];
+                var index = int.Parse(tokens[1]);
+
+                if (this.SmsMessageReceived != null)
+                {
+                    this.SmsMessageReceived(this, new SmsMessageReceivedEventArgs(this, storageCode, index));
+                }
+            }
+        }
 
         private byte[] ReadExistingBinary()
         {
@@ -667,6 +839,19 @@ namespace Molarity.Hardare.AdafruitFona
         private void WriteLine(string txt)
         {
             this.Write(txt + "\r\n");
+        }
+
+        private string Unquote(string quotedString)
+        {
+            quotedString = quotedString.Trim();
+            var quoteChar = quotedString[0];
+            if (quoteChar!='\'' && quoteChar!='"')
+                return quotedString;
+            if (quotedString.LastIndexOf(quoteChar) != quotedString.Length - 1)
+                return quotedString;
+            quotedString = quotedString.Substring(1);
+            quotedString = quotedString.Substring(0, quotedString.Length - 1);
+            return /* the now unquoted */ quotedString;
         }
 
         #endregion

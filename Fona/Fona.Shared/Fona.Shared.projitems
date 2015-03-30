@@ -14,5 +14,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)FonaDevice.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PowerStatusEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RingingEventArgs.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SmsMessage.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SmsMessageReceived.cs" />
   </ItemGroup>
 </Project>

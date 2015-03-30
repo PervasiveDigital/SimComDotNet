@@ -43,6 +43,9 @@ namespace MFFonaTest
 
             _fona.EnableCallerId = true;
             _fona.CallerIdReceived += FonaOnCallerIdReceived;
+            _fona.EnableSmsNotification = true;
+            _fona.SmsMessageReceived += FonaOnSmsMessageReceived;
+
             // Output some identifying information
             Debug.Print("IMEI = " + _fona.GetImei());
             Debug.Print("SIM CCID = " + _fona.GetSimCcid());
@@ -54,7 +57,26 @@ namespace MFFonaTest
             if (status.CellId!=null)
                 Debug.Print("   Cell ID : " + status.CellId);
 
-            //Debug.Print("Current RSSI : " + _fona.GetRssi());
+            Debug.Print("Current RSSI : " + _fona.GetRssi());
+
+            var count = _fona.GetSmsMessageCount();
+            Debug.Print("There are " + count + " received sms messages");
+
+            if (count > 0)
+            {
+                var sms = _fona.GetSmsMessage(count);
+                Debug.Print("Latest text message:");
+                Debug.Print("   Phone number : " + sms.Number);
+                Debug.Print("   Address Type : " + sms.AddressType);
+                Debug.Print("   Status : " + sms.Status);
+                Debug.Print("   Timestamp : " + sms.Timestamp);
+                Debug.Print("   Body : " + sms.Body);
+            }
+
+            Debug.Print("Battery Voltage : " + _fona.GetBatteryVoltage());
+            Debug.Print("Battery charge state : " + _fona.GetBatteryChargeState());
+            Debug.Print("Battery charge percentage : " + _fona.GetBatteryChargePercentage() + "% of fully charged.");
+            Debug.Print("ADC Voltage : " + _fona.GetAdcVoltage());
 
             bool state = true;
             int iCount = 0;
@@ -69,6 +91,11 @@ namespace MFFonaTest
                     iCount = 0;
                 }
             }
+        }
+
+        private static void FonaOnSmsMessageReceived(object sender, SmsMessageReceivedEventArgs args)
+        {
+            Debug.Print("A new sms message has been received. Storage=" + args.Storage + ", index=" + args.MessageIndex);
         }
 
         private static void FonaOnCallerIdReceived(object sender, CallerIdEventArgs args)
