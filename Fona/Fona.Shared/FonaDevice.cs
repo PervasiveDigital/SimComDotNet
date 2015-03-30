@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Define this for very verbose debugging of the serial protocol interactions
+//#define VERBOSE
+
+using System;
 using System.Collections;
 using System.IO.Ports;
 using System.Text;
@@ -35,9 +38,10 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public partial class FonaDevice
     {
-        private const int DefaultCommandTimeout = 10000;
+        private const int DefaultCommandTimeout = -1; //10000;
         private const string AT = "AT";
         private const string OK = "OK";
+        private const string FactoryResetCommand = "ATZ";
         private const string DialCommand = "ATD";
         private const string RedialCommand = "ATDL";
         private const string HangUpCommand = "ATH";
@@ -84,6 +88,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private readonly SerialPort _port;
         private readonly object _lockSendExpect = new object();
+        private bool _fIgnoreCLIP = false;
 
         /// <summary>
         /// Registration status is used to indicate the relationship that the Fona device has with a cell provider
@@ -177,6 +182,11 @@ namespace Molarity.Hardare.AdafruitFona
 
             // Throw, if we don't get an expected response here
             SendAndExpect(EchoOffCommand, OK);
+        }
+
+        public void FactoryReset()
+        {
+            SendAndExpect(FactoryResetCommand, OK);
         }
 
         /// <summary>
@@ -459,7 +469,17 @@ namespace Molarity.Hardare.AdafruitFona
             }
             set
             {
-                SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
+                try
+                {
+                    // This flag is used so that the input parser does not confuse the response to this command with the unsolicited CLIP
+                    //   notofication used by caller ID
+                    _fIgnoreCLIP = true;
+                    SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
+                }
+                finally
+                {
+                    _fIgnoreCLIP = false;
+                }
             }
         }
 
@@ -600,7 +620,7 @@ namespace Molarity.Hardare.AdafruitFona
                 do
                 {
                     response = GetReplyWithTimeout(timeout);
-                } while (response == null || response == "");
+                } while (response == null || response == "" || response==command);
             }
             return response;
         }
@@ -702,49 +722,103 @@ namespace Molarity.Hardare.AdafruitFona
         private readonly ArrayList _responseQueue = new ArrayList();
         private readonly AutoResetEvent _responseReceived = new AutoResetEvent(false);
         private string _buffer;
+        private string _stream = "";
+        private int _cbStream = 0;
 
         private void PortOnDataReceived(object sender, SerialDataReceivedEventArgs serialDataReceivedEventArgs)
         {
             if (serialDataReceivedEventArgs.EventType == SerialData.Chars)
             {
                 string newInput = ReadExisting();
+#if VERBOSE
+                Debug.Print("ReadExisting : " + newInput);
+#endif
                 if (newInput != null && newInput.Length > 0)
                 {
                     _buffer += newInput;
+
+                    if (_cbStream != 0)
+                    {
+                        // If we are capturing an input stream, then copy characters from the serial port
+                        //   until the count of desired characters == 0
+                        while (_cbStream > 0 && _buffer.Length > 0)
+                        {
+                            _stream += _buffer[0];
+                            _buffer = _buffer.Substring(1);
+                            --_cbStream;
+                        }
+                        // If we have fulfilled the stream request, then add the stream as a whole to the response queue
+                        if (_cbStream == 0)
+                        {
+                            lock (_responseQueueLock)
+                            {
+                                _responseQueue.Add(_stream);
+                                _stream = "";
+                                _responseReceived.Set();
+                            }
+                        }
+                    }
+
+                    // process whatever is left in the buffer (after fulfilling any stream requests)
                     var idxNewline = _buffer.IndexOf('\n');
-                    while (idxNewline!=-1)
+                    while (idxNewline != -1)
                     {
                         var line = _buffer.Substring(0, idxNewline);
                         _buffer = _buffer.Substring(idxNewline + 1);
-                        if (line[line.Length - 1] == '\r')
+                        while (line.Length > 0 && line[line.Length - 1] == '\r')
                             line = line.Substring(0, line.Length - 1);
-                        if (line.ToUpper() == "RING")
+                        if (line.Length > 0)
                         {
-                            // If we received a line with 'RING' on it, and the hardware ring pin
-                            //   is not enabled, then raise a ring event. In this case, the RING
-                            //   indication may be raised several times for a single incoming call.
-                            //   Otherwise, eat the RING string because it will just confuse us
-                            if (!this.HardwareRingIndicationEnabled)
+                            bool fAddLine = false;
+                            if (line.ToUpper() == "RING")
                             {
-                                RaiseTextRingEvent();
+                                // If we received a line with 'RING' on it, and the hardware ring pin
+                                //   is not enabled, then raise a ring event. In this case, the RING
+                                //   indication may be raised several times for a single incoming call.
+                                //   Otherwise, eat the RING string because it will just confuse us
+                                if (!this.HardwareRingIndicationEnabled)
+                                {
+                                    RaiseTextRingEvent();
+                                }
                             }
-                        }
-                        else if (line.IndexOf("+CLIP: ") == 0)
-                        {
-                            // caller id information
-                            RaiseCallerIdEvent(line.Substring(7));
-                        }
-                        else if (line.IndexOf("+CMTI: ") == 0)
-                        {
-                            // caller id information
-                            RaiseSmsReceivedEvent(line.Substring(7));
-                        }
-                        else
-                        {
-                            if (line.Length > 0)
+                            else if (line.IndexOf("+CLIP: ") == 0)
+                            {
+                                if (!_fIgnoreCLIP)
+                                {
+                                    // caller id information
+                                    RaiseCallerIdEvent(line.Substring(7));
+                                }
+                            }
+                            else if (line.IndexOf("+CMTI: ") == 0)
+                            {
+                                // caller id information
+                                RaiseSmsReceivedEvent(line.Substring(7));
+                            }
+                            else if (line.IndexOf(ReadSmsMessageReply) == 0)
+                            {
+                                // We have to handle this one differently
+                                var info = line.Substring(ReadSmsMessage.Length);
+                                var tokens = info.Split(',');
+                                if (tokens.Length >= 10)
+                                {
+                                    _cbStream = int.Parse(tokens[11]);
+                                    _stream = "";
+                                }
+                                // after stripping off the stream count, we still need to return this line
+                                fAddLine = true;
+                            }
+                            else
+                            {
+                                // If this was not one of the special response strings, add the line to the response queue
+                                fAddLine = true;
+                            }
+                            if (fAddLine)
                             {
                                 lock (_responseQueueLock)
                                 {
+#if VERBOSE
+                                    Debug.Print("Received Line : " + line);
+#endif
                                     _responseQueue.Add(line);
                                     _responseReceived.Set();
                                 }
@@ -838,6 +912,9 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void WriteLine(string txt)
         {
+#if VERBOSE
+            Debug.Print("Sent: " + txt);
+#endif
             this.Write(txt + "\r\n");
         }
 

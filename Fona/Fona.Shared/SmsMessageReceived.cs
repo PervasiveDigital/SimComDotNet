@@ -86,10 +86,5 @@ namespace Molarity.Hardare.AdafruitFona
         /// Indicates where this message was stored
         /// </summary>
         public SmsStorage Storage { get; private set; }
-
-        public SmsMessage Message
-        {
-            get { return _device.GetSmsMessage(this.MessageIndex); }
-        }
     }
 }
