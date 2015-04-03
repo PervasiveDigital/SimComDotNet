@@ -33,6 +33,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{668C15A2
 		Invoke-Environment.ps1 = Invoke-Environment.ps1
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{8E5606A0-F69F-4C22-A98B-5200D93F710B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentation", "{26A1FF89-2E13-45F9-A01A-8DE8A55C3673}"
+	ProjectSection(SolutionItems) = preProject
+		..\LICENSE = ..\LICENSE
+		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Fona.Shared\Fona.Shared.projitems*{60824738-2fa9-4cdd-bfd2-cf270c12f996}*SharedItemsImports = 13
@@ -72,7 +80,11 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{2395410B-6C7A-451C-87C8-F918836AEDBA} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
+		{60824738-2FA9-4CDD-BFD2-CF270C12F996} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 		{83FF6E7C-84B6-476B-BD27-2C4146586B6E} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
 		{F8031D60-D3E0-4FDA-9794-64A55DF24454} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
+		{215CBD0C-27E0-4F3F-9CE0-714387042A25} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 	EndGlobalSection
 EndGlobal

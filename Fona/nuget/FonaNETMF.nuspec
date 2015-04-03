@@ -13,11 +13,17 @@
     <summary>.Net Micro Framework support for the Adafruit Fona breakout board</summary>
     <description>
       This library provides managed language support for the Adafruit Fona breakout boards for .Net Micro Framework applications.
-      This includes support for keying the board on and off, monitoring power states, and using hardware ring indications via
-      .Net Micro Framework GPIO ports.
+      This includes support for keying the board on and off, monitoring power states, and using hardware ring indications via .Net Micro Framework GPIO ports.
     </description>
     <releaseNotes>Initial release.</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS NETMF MicroFramework IoT</tags>
+    <references>
+      <group targetFramework="netmf">
+        <reference file="Microsoft.SPOT.Native" />
+        <reference file="Microsoft.SPOT.Hardware" />
+        <reference file="Microsoft.SPOT.Hardware.SerialPort" />
+      </group>
+    </references>
   </metadata>
 </package>
