@@ -2,17 +2,22 @@
 <package >
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-Win</id>
-    <title>.Net support for the Adafruit Fona Breakout Board</title>
-    <version>0.1.0-beta</version>
+    <title>Support for the Adafruit Fona GSM/GPRS Board on Windows</title>
+    <version>0.1.1-beta</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
     <projectUrl>https://github.com/martincalsyn/Fona.net</projectUrl>
     <!--<iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>-->
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>This library provides managed language support for the Adafruit Fona breakout boards.</description>
+    <summary>Support for the Adafruit Fona breakout board on Windows PCs or Windows 10 IoT for Raspberry Pi</summary>
+    <description>
+      This library provides managed language support for the Adafruit Fona breakout boards for .Net Micro Framework applications.
+      GPIO-based management of the board is not currently supported, but will be added if/when Windows 10 IoT GPIO becomes available.
+      This library uses the serial port (or a usb serial cable) to drive the Fona breakout board.
+    </description>
     <releaseNotes>Initial release.</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
-    <tags>adafruit fona GSM GPRS Windows IoT</tags>
+    <tags>adafruit fona GSM GPRS Windows Windows10 IoT</tags>
   </metadata>
 </package>

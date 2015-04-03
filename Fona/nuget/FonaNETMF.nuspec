@@ -2,15 +2,20 @@
 <package >
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-NETMF</id>
-    <title>.Net support for the Adafruit Fona Breakout Board</title>
-    <version>0.1.0-beta</version>
+    <title>Support for the Adafruit Fona GSM/GPRS Board on .Net Micro Framework</title>
+    <version>0.1.1-beta</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
     <projectUrl>https://github.com/martincalsyn/Fona.net</projectUrl>
     <!--<iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>-->
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>This library provides managed language support for the Adafruit Fona breakout boards.</description>
+    <summary>.Net Micro Framework support for the Adafruit Fona breakout board</summary>
+    <description>
+      This library provides managed language support for the Adafruit Fona breakout boards for .Net Micro Framework applications.
+      This includes support for keying the board on and off, monitoring power states, and using hardware ring indications via
+      .Net Micro Framework GPIO ports.
+    </description>
     <releaseNotes>Initial release.</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS NETMF MicroFramework IoT</tags>
