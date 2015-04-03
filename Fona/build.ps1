@@ -20,7 +20,7 @@ mkdir $repoDir | out-null
 mkdir $repoDir"\Debug" | out-null
 mkdir $repoDir"\Release" | out-null
 
-$nuspecWin = $targetDir + "\Fona.nuspec"
+$nuspecWin = $targetDir + "\FonaWin.nuspec"
 [xml] $nuspecSourceWin = gc $nuspecWin
 $nuspecRPi = $targetDir + "\FonaRPi.nuspec"
 [xml] $nuspecSourceRPi = gc $nuspecRPi
