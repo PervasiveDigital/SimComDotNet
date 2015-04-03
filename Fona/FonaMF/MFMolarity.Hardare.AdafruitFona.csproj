@@ -43,4 +43,8 @@
   <Import Project="..\Fona.Shared\Fona.Shared.projitems" Label="Shared" Condition="Exists('..\Fona.Shared\Fona.Shared.projitems')" />
   <Import Condition="EXISTS('$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets')" Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />
   <Import Condition="!EXISTS('$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets')" Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>del /q $(SolutionDir)nuget\NETMF\lib\netmf\* $(SolutionDir)nuget\NETMF\lib\netmf\be\* $(SolutionDir)nuget\NETMF\lib\netmf\le\* &amp;&amp; copy /y $(TargetDir)MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf &amp;&amp; copy /y $(TargetDir)be\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\be &amp;&amp; copy /y $(TargetDir)le\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\le
+</PostBuildEvent>
+  </PropertyGroup>
 </Project>

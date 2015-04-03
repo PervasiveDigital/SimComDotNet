@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>Molarity.Hardware.AdafruitFona-NETMF</id>
+    <title>.Net support for the Adafruit Fona Breakout Board</title>
+    <version>0.1.0</version>
+    <authors>Martin Calsyn</authors>
+    <owners>Prometheus Engineering S.L.</owners>
+    <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
+    <projectUrl>https://github.com/martincalsyn/Fona.net</projectUrl>
+    <!--<iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>-->
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>This library provides managed language support for the Adafruit Fona breakout boards.</description>
+    <releaseNotes>Initial release.</releaseNotes>
+    <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
+    <tags>adafruit fona GSM GPRS NETMF MicroFramework IoT</tags>
+  </metadata>
+</package>

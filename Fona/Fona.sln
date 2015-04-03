@@ -24,6 +24,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFFonaTest", "MFFonaTest\MF
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPiMolarity.Hardare.AdafruitFona", "RPiFona\RPiMolarity.Hardare.AdafruitFona.csproj", "{215CBD0C-27E0-4F3F-9CE0-714387042A25}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{668C15A2-D384-4737-B38F-1A0DDFA4C07B}"
+	ProjectSection(SolutionItems) = preProject
+		build.ps1 = build.ps1
+		nuget\FonaNETMF.nuspec = nuget\FonaNETMF.nuspec
+		nuget\FonaRPi.nuspec = nuget\FonaRPi.nuspec
+		nuget\FonaWin.nuspec = nuget\FonaWin.nuspec
+		Invoke-Environment.ps1 = Invoke-Environment.ps1
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Fona.Shared\Fona.Shared.projitems*{60824738-2fa9-4cdd-bfd2-cf270c12f996}*SharedItemsImports = 13
