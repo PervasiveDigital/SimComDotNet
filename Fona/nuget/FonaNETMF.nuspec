@@ -18,12 +18,10 @@
     <releaseNotes>Initial release.</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS NETMF MicroFramework IoT</tags>
-    <references>
-      <group targetFramework="netmf">
-        <reference file="Microsoft.SPOT.Native" />
-        <reference file="Microsoft.SPOT.Hardware" />
-        <reference file="Microsoft.SPOT.Hardware.SerialPort" />
-      </group>
-    </references>
+    <frameworkAssemblies>
+        <frameworkAssembly assemblyName="Microsoft.SPOT.Native" />
+        <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware" />
+        <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware.SerialPort" />
+    </frameworkAssemblies>
   </metadata>
 </package>
