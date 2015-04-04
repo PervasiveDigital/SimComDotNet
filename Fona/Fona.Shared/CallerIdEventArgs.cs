@@ -6,13 +6,25 @@ using Microsoft.SPOT;
 namespace Molarity.Hardare.AdafruitFona
 {
     /// <summary>
-    /// The type of caller id number presented
+    /// The type of phone number
     /// </summary>
     public enum AddressType
     {
+        /// <summary>
+        /// The phone number type is not known
+        /// </summary>
         Unknown = 129,
+        /// <summary>
+        /// A national phone number (does not include country information)
+        /// </summary>
         National = 161,
+        /// <summary>
+        /// An international phone number, which includes complete country dialing information.
+        /// </summary>
         International = 145,
+        /// <summary>
+        /// A network-specific phone number which will only work within the currently registered network.
+        /// </summary>
         NetworkSpecific = 177
     }
 

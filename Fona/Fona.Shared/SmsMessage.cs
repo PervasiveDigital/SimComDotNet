@@ -5,14 +5,39 @@ using Microsoft.SPOT;
 
 namespace Molarity.Hardare.AdafruitFona
 {
-    public enum SmsMessageStatus
+    /// <summary>
+    /// A status code defining the origin and status of a given SMS message.
+    /// An SMS message can be associated with one status (not including All).
+    /// You can use combinations of flags to filter messages for retrieval.
+    /// </summary>
+    [Flags]
+    public enum SmsMessageStatus : byte
     {
-        Unknown,
-        ReceivedUnread,
-        ReceivedRead,
-        StoredUnsent,
-        StoredSent,
-        All
+        /// <summary>
+        /// The status of the message is not known
+        /// </summary>
+        Unknown = 0,
+        /// <summary>
+        /// The message was received and has not been read
+        /// </summary>
+        ReceivedUnread = 1,
+        /// <summary>
+        /// The message was received and has been read
+        /// </summary>
+        ReceivedRead = 2,
+        /// <summary>
+        /// The message was composed and stored but has not been sent
+        /// </summary>
+        StoredUnsent = 4,
+        /// <summary>
+        /// The message was composed, stored and has been sent
+        /// </summary>
+        StoredSent = 8,
+        /// <summary>
+        /// All valid statuses - used only to filter messages for retrieval. This is not
+        /// a valid status for a single message.
+        /// </summary>
+        All = 0xf
     }
 
     /// <summary>
@@ -20,7 +45,7 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public class SmsMessage
     {
-        public SmsMessage(SmsMessageStatus status, string senderPhoneNumber, AddressType addrType, DateTime timestamp, string body)
+        internal SmsMessage(SmsMessageStatus status, string senderPhoneNumber, AddressType addrType, DateTime timestamp, string body)
         {
             this.Status = status;
             this.Number = senderPhoneNumber;
@@ -29,17 +54,32 @@ namespace Molarity.Hardare.AdafruitFona
             this.Body = body;
         }
 
+        /// <summary>
+        /// The status and origin of this message
+        /// </summary>
         public SmsMessageStatus Status { get; private set; }
 
+        /// <summary>
+        /// The phone number of the message sender
+        /// </summary>
         public string Number { get; private set; }
 
+        /// <summary>
+        /// The type of phone number presented in the 'Number' member
+        /// </summary>
         public AddressType AddressType { get; private set; }
 
+        /// <summary>
+        /// The time reported by the Fona for this message
+        /// </summary>
         public DateTime Timestamp { get; private set; }
 
+        /// <summary>
+        /// The textual body of the message. May contain multiple lines.
+        /// </summary>
         public string Body { get; private set; }
 
-        public static SmsMessageStatus ParseMessageStatus(string statusName)
+        internal static SmsMessageStatus ParseMessageStatus(string statusName)
         {
             switch (statusName)
             {

@@ -95,11 +95,30 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public enum RegistrationStatus
         {
+            /// <summary>
+            /// Not registered with any cell service
+            /// </summary>
             NotRegistered = 0,
+            /// <summary>
+            /// Registered with Home provider
+            /// </summary>
             Home = 1,
+            /// <summary>
+            /// Searching for a cell service provider
+            /// </summary>
             Searching = 2,
+            /// <summary>
+            /// Registration was denied by cell service provider(s)
+            /// </summary>
             RegistrationDenied = 3,
+            /// <summary>
+            /// Registration status is not known
+            /// </summary>
             Unknown = 4,
+            /// <summary>
+            /// Registered with a provider that is not our home provider or
+            /// outside our home region.
+            /// </summary>
             Roaming = 5
         }
 
@@ -109,8 +128,17 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public struct NetworkStatus
         {
+            /// <summary>
+            /// The current registration status. Indicates whether we are registered with a cell service provider
+            /// </summary>
             public RegistrationStatus RegistrationStatus;
+            /// <summary>
+            /// If available, the local area code
+            /// </summary>
             public string LocationAreaCode;
+            /// <summary>
+            /// If available, the local cell identification
+            /// </summary>
             public string CellId;
         }
 
@@ -184,6 +212,9 @@ namespace Molarity.Hardare.AdafruitFona
             SendAndExpect(EchoOffCommand, OK);
         }
 
+        /// <summary>
+        /// Return the Fona board to its factory settings
+        /// </summary>
         public void FactoryReset()
         {
             SendAndExpect(FactoryResetCommand, OK);
@@ -504,6 +535,9 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        /// <summary>
+        /// True to enable async notification of incoming SMS messages.
+        /// </summary>
         public bool EnableSmsNotification
         {
             get
@@ -520,6 +554,10 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        /// <summary>
+        /// Return the number of SMS messages in memory
+        /// </summary>
+        /// <returns>The count of stored messages</returns>
         public int GetSmsMessageCount()
         {
             SendAndExpect(SetSmsMode + "1", OK);
@@ -532,6 +570,11 @@ namespace Molarity.Hardare.AdafruitFona
             return int.Parse(tokens[1]);
         }
 
+        /// <summary>
+        /// Retrieve a received SMS message
+        /// </summary>
+        /// <param name="index">The index indicating which message to retrieve</param>
+        /// <returns>An object containing the SMS message and related metadata</returns>
         public SmsMessage GetSmsMessage(int index)
         {
             // Text mode
@@ -862,7 +905,7 @@ namespace Molarity.Hardare.AdafruitFona
 
                 if (this.SmsMessageReceived != null)
                 {
-                    this.SmsMessageReceived(this, new SmsMessageReceivedEventArgs(this, storageCode, index));
+                    this.SmsMessageReceived(this, new SmsMessageReceivedEventArgs(storageCode, index));
                 }
             }
         }

@@ -27,7 +27,7 @@ Currently, only the .Net Micro Framework version (Molarity.Hardware.AdafruitFona
 of the Fona board via GPIO (General Purpose I/O, or digital input and output pins). We will be adding 
 Raspberry Pi GPIO support shortly, and will add Windows 10 IoT GPIO support when it becomes available.
 
-GPIO lines are completely optional, but do improve your control over the board. In particular, you
+GPIO lines are completely optional, but they do improve your control over the board. In particular, you
 need GPIO lines in order to do a hardware reset or to power the board on or off. GPIO can also be
 used to enable hardware interrupt based notification of incoming calls, although software support
 for this is also implemented.  Without GPIO, you will still be able to make and receive calls and texts

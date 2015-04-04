@@ -42,17 +42,13 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public class SmsMessageReceivedEventArgs : EventArgs
     {
-        private FonaDevice _device;
-
         /// <summary>
         /// Initialize the event arguments describing an incoming text
         /// </summary>
         /// <param name="storageCode">Code indicating where the message was stored</param>
         /// <param name="newMessageIndex">The storage index of the received message</param>
-        public SmsMessageReceivedEventArgs(FonaDevice device, string storageCode, int newMessageIndex)
+        public SmsMessageReceivedEventArgs(string storageCode, int newMessageIndex)
         {
-            _device = device;
-
             switch (storageCode)
             {
                 case "SM":
