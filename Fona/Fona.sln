@@ -34,11 +34,20 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{668C15A2
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{8E5606A0-F69F-4C22-A98B-5200D93F710B}"
+	ProjectSection(SolutionItems) = preProject
+		Version.xml = Version.xml
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentation", "{26A1FF89-2E13-45F9-A01A-8DE8A55C3673}"
 	ProjectSection(SolutionItems) = preProject
 		..\LICENSE = ..\LICENSE
 		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{97F2524F-A581-42AB-A22C-8A460B27AFAA}"
+	ProjectSection(SolutionItems) = preProject
+		Scripts\SolutionPostBuild.ps1 = Scripts\SolutionPostBuild.ps1
+		Scripts\SolutionPreBuild.ps1 = Scripts\SolutionPreBuild.ps1
 	EndProjectSection
 EndProject
 Global

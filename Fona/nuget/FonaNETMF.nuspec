@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<package >
+<package>
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-NETMF</id>
     <title>Support for the Adafruit Fona GSM/GPRS Board on .Net Micro Framework</title>
-    <version>0.1.1-beta</version>
+    <version>0.3.0.0-beta</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
@@ -19,9 +19,9 @@
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS NETMF MicroFramework IoT</tags>
     <frameworkAssemblies>
-        <frameworkAssembly assemblyName="Microsoft.SPOT.Native" />
-        <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware" />
-        <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware.SerialPort" />
+      <frameworkAssembly assemblyName="Microsoft.SPOT.Native" />
+      <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware" />
+      <frameworkAssembly assemblyName="Microsoft.SPOT.Hardware.SerialPort" />
     </frameworkAssemblies>
   </metadata>
 </package>

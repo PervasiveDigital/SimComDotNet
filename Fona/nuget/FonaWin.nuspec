@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<package >
+<package>
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-Win</id>
     <title>Support for the Adafruit Fona GSM/GPRS Board on Windows</title>
-    <version>0.1.1-beta</version>
+    <version>0.3.0.0-beta</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->

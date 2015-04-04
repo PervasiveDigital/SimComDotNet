@@ -44,7 +44,11 @@
   <Import Condition="EXISTS('$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets')" Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />
   <Import Condition="!EXISTS('$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets')" Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>del /q $(SolutionDir)nuget\NETMF\lib\netmf\* $(SolutionDir)nuget\NETMF\lib\netmf\be\* $(SolutionDir)nuget\NETMF\lib\netmf\le\* &amp;&amp; copy /y $(TargetDir)MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf &amp;&amp; copy /y $(TargetDir)be\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\be &amp;&amp; copy /y $(TargetDir)le\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\le
+    <PostBuildEvent>powershell -NoLogo -NonInteractive -Command .'$(SolutionDir)Scripts\SolutionPostBuild.ps1' -Verbose -IsNetMF -RepoDir:'\repo' -nuspec:'$(SolutionDir)nuget\FonaNETMF.nuspec' -SolutionDir:'$(SolutionDir)' -ProjectDir:'$(ProjectDir)' -ProjectName:'$(ProjectName)' -TargetDir:'$(TargetDir)' -TargetFileName:'$(TargetFileName)' -ConfigurationName:'$(ConfigurationName)'
+rem del /q $(SolutionDir)nuget\NETMF\lib\netmf\* $(SolutionDir)nuget\NETMF\lib\netmf\be\* $(SolutionDir)nuget\NETMF\lib\netmf\le\* &amp;&amp; copy /y $(TargetDir)MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf &amp;&amp; copy /y $(TargetDir)be\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\be &amp;&amp; copy /y $(TargetDir)le\MFMolarity* $(SolutionDir)nuget\NETMF\lib\netmf\le
 </PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>powershell -NoLogo -NonInteractive -Command .'$(SolutionDir)Scripts\SolutionPreBuild.ps1' -Verbose -IsNetMF -nuspec:'$(SolutionDir)nuget\FonaNETMF.nuspec' -SolutionDir:'$(SolutionDir)' -ProjectDir:'$(ProjectDir)' -TargetDir:'$(TargetDir)' -TargetFileName:'$(TargetFileName)' -ConfigurationName:'$(ConfigurationName)'</PreBuildEvent>
   </PropertyGroup>
 </Project>

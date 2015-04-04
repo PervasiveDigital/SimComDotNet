@@ -50,6 +50,9 @@
     <PostBuildEvent>del /q $(SolutionDir)nuget\Win\lib\net40\* &amp;&amp; copy /y $(TargetDir)Molarity* $(SolutionDir)nuget\Win\lib\net40
 </PostBuildEvent>
   </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>powershell -NoLogo -NonInteractive -Command .'$(SolutionDir)Scripts\SolutionPreBuild.ps1' -Verbose -nuspec:'$(SolutionDir)nuget\FonaWin.nuspec' -SolutionDir:'$(SolutionDir)' -ProjectDir:'$(ProjectDir)' -TargetDir:'$(TargetDir)' -TargetFileName:'$(TargetFileName)' -ConfigurationName:'$(ConfigurationName)'</PreBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
