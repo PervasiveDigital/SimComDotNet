@@ -50,9 +50,9 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FonaMF\MFMolarity.Hardare.AdafruitFona.csproj">
+    <ProjectReference Include="..\MFMolarity.Hardware.AdafruitFona\MFMolarity.Hardware.AdafruitFona.csproj">
       <Project>{2395410B-6C7A-451C-87C8-F918836AEDBA}</Project>
-      <Name>MFMolarity.Hardare.AdafruitFona</Name>
+      <Name>MFMolarity.Hardware.AdafruitFona</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Condition="EXISTS('$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets')" Project="$(NetMfTargetsBaseDir)$(TargetFrameworkVersion)\CSharp.Targets" />

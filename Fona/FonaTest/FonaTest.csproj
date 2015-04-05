@@ -48,7 +48,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Fona\Molarity.Hardware.AdafruitFona.csproj">
+    <ProjectReference Include="..\Molarity.Hardware.AdafruitFona\Molarity.Hardware.AdafruitFona.csproj">
       <Project>{6f1b735e-46a2-4cdc-8b4e-4c1316ca8c91}</Project>
       <Name>Molarity.Hardware.AdafruitFona</Name>
     </ProjectReference>

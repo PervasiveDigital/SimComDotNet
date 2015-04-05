@@ -3,10 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFMolarity.Hardare.AdafruitFona", "FonaMF\MFMolarity.Hardare.AdafruitFona.csproj", "{2395410B-6C7A-451C-87C8-F918836AEDBA}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Molarity.Hardware.AdafruitFona", "Fona\Molarity.Hardware.AdafruitFona.csproj", "{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}"
-EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Fona.Shared", "Fona.Shared\Fona.Shared.shproj", "{60824738-2FA9-4CDD-BFD2-CF270C12F996}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{1A101D4A-89B8-4646-807C-4BD195068D30}"
@@ -21,8 +17,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FonaTest", "FonaTest\FonaTest.csproj", "{83FF6E7C-84B6-476B-BD27-2C4146586B6E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFFonaTest", "MFFonaTest\MFFonaTest.csproj", "{F8031D60-D3E0-4FDA-9794-64A55DF24454}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPiMolarity.Hardare.AdafruitFona", "RPiFona\RPiMolarity.Hardare.AdafruitFona.csproj", "{215CBD0C-27E0-4F3F-9CE0-714387042A25}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{668C15A2-D384-4737-B38F-1A0DDFA4C07B}"
 	ProjectSection(SolutionItems) = preProject
@@ -48,6 +42,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{97F2
 		Scripts\SolutionPreBuild.ps1 = Scripts\SolutionPreBuild.ps1
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFMolarity.Hardware.AdafruitFona", "MFMolarity.Hardware.AdafruitFona\MFMolarity.Hardware.AdafruitFona.csproj", "{2395410B-6C7A-451C-87C8-F918836AEDBA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Molarity.Hardware.AdafruitFona", "Molarity.Hardware.AdafruitFona\Molarity.Hardware.AdafruitFona.csproj", "{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPiMolarity.Hardware.AdafruitFona", "RPiMolarity.Hardware.AdafruitFona\RPiMolarity.Hardware.AdafruitFona.csproj", "{215CBD0C-27E0-4F3F-9CE0-714387042A25}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Fona.Shared\Fona.Shared.projitems*{60824738-2fa9-4cdd-bfd2-cf270c12f996}*SharedItemsImports = 13
@@ -60,14 +60,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.Build.0 = Release|Any CPU
 		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{83FF6E7C-84B6-476B-BD27-2C4146586B6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -78,6 +70,14 @@ Global
 		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F8031D60-D3E0-4FDA-9794-64A55DF24454}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2395410B-6C7A-451C-87C8-F918836AEDBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91}.Release|Any CPU.Build.0 = Release|Any CPU
 		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{215CBD0C-27E0-4F3F-9CE0-714387042A25}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -87,11 +87,11 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{2395410B-6C7A-451C-87C8-F918836AEDBA} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
-		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 		{60824738-2FA9-4CDD-BFD2-CF270C12F996} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 		{83FF6E7C-84B6-476B-BD27-2C4146586B6E} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
 		{F8031D60-D3E0-4FDA-9794-64A55DF24454} = {E2CD93D5-FFC3-4771-932A-03CEDCDED653}
+		{2395410B-6C7A-451C-87C8-F918836AEDBA} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
+		{6F1B735E-46A2-4CDC-8B4E-4C1316CA8C91} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 		{215CBD0C-27E0-4F3F-9CE0-714387042A25} = {8E5606A0-F69F-4C22-A98B-5200D93F710B}
 	EndGlobalSection
 EndGlobal
