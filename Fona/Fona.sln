@@ -26,11 +26,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPiMolarity.Hardare.Adafrui
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{668C15A2-D384-4737-B38F-1A0DDFA4C07B}"
 	ProjectSection(SolutionItems) = preProject
-		build.ps1 = build.ps1
 		nuget\FonaNETMF.nuspec = nuget\FonaNETMF.nuspec
 		nuget\FonaRPi.nuspec = nuget\FonaRPi.nuspec
 		nuget\FonaWin.nuspec = nuget\FonaWin.nuspec
-		Invoke-Environment.ps1 = Invoke-Environment.ps1
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{8E5606A0-F69F-4C22-A98B-5200D93F710B}"

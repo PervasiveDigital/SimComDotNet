@@ -21,7 +21,7 @@ if ($PSBoundParameters.ContainsKey('Disable'))
 # read the desired new version
 [xml] $doc = gc $SolutionDir"Version.xml"
 $NewVersion = $doc.Version.Major + "." + $doc.Version.Minor + "." + $doc.Version.Build + "." + $doc.Version.Revision
-$NewNuspecVersion = $NewVersion + $doc.Version.Suffix
+$NewNuspecVersion = $doc.Version.Major + "." + $doc.Version.Minor + "." + $doc.Version.Build + $doc.Version.Suffix
 
 # Apply the version to the assembly property files
 $files = gci $ProjectDir -recurse -include "*Properties*","My Project" | 

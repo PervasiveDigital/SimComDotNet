@@ -47,7 +47,7 @@
   <Import Project="..\Fona.Shared\Fona.Shared.projitems" Label="Shared" Condition="Exists('..\Fona.Shared\Fona.Shared.projitems')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>del /q $(SolutionDir)nuget\RPi\lib\net40\* &amp;&amp; copy /y $(TargetDir)RPiMolarity* $(SolutionDir)nuget\RPi\lib\net40
+    <PostBuildEvent>powershell -NoLogo -NonInteractive -Command .'$(SolutionDir)Scripts\SolutionPostBuild.ps1' -Verbose -RepoDir:'\repo\' -nuspec:'$(SolutionDir)nuget\FonaRPi.nuspec' -SolutionDir:'$(SolutionDir)' -ProjectDir:'$(ProjectDir)' -ProjectName:'$(ProjectName)' -TargetDir:'$(TargetDir)' -TargetFileName:'$(TargetFileName)' -ConfigurationName:'$(ConfigurationName)'
 </PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
