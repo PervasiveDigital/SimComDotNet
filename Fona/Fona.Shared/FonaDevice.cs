@@ -939,9 +939,9 @@ namespace Molarity.Hardare.AdafruitFona
 
         private static void EventDispatcher()
         {
-            try
+            while (true)
             {
-                while (true)
+                try
                 {
                     object item;
                     do
@@ -958,11 +958,11 @@ namespace Molarity.Hardare.AdafruitFona
                         var eventForDispatch = item as EventForDispatch;
                         if (eventForDispatch != null)
                         {
-                            var device = (FonaDevice)eventForDispatch.Sender;
+                            var device = (FonaDevice) eventForDispatch.Sender;
                             if (eventForDispatch.EventArgs is RingingEventArgs)
-                            { 
+                            {
                                 if (device.Ringing != null)
-                                    device.Ringing(device, (RingingEventArgs)eventForDispatch.EventArgs);
+                                    device.Ringing(device, (RingingEventArgs) eventForDispatch.EventArgs);
                             }
                             else if (eventForDispatch.EventArgs is CallerIdEventArgs)
                             {
@@ -972,17 +972,18 @@ namespace Molarity.Hardare.AdafruitFona
                             else if (eventForDispatch.EventArgs is SmsMessageReceivedEventArgs)
                             {
                                 if (device.SmsMessageReceived != null)
-                                    device.SmsMessageReceived(device, (SmsMessageReceivedEventArgs)eventForDispatch.EventArgs);
+                                    device.SmsMessageReceived(device,
+                                        (SmsMessageReceivedEventArgs) eventForDispatch.EventArgs);
                             }
                         }
                     } while (item != null);
                     _eventEnqueued.WaitOne();
                 }
-            }
-            catch (Exception exc)
-            {
-                // yes, catch everything - this thread has to keep plugging on
-                Dbg("An exception has occurred while dispatching events : " + exc);
+                catch (Exception exc)
+                {
+                    // yes, catch everything - this thread has to keep plugging on
+                    Dbg("An exception has occurred while dispatching events : " + exc);
+                }
             }
         }
 
