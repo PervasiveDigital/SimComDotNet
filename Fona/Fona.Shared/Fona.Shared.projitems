@@ -12,6 +12,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)CallerIdEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Exceptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FonaDevice.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FonaHttpResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HttpResponseEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PowerStatusEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RingingEventArgs.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SmsMessage.cs" />

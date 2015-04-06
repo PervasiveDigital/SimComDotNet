@@ -39,11 +39,19 @@ namespace Molarity.Hardare.AdafruitFona
     public delegate void SmsMessageReceivedEventHandler(object sender, SmsMessageReceivedEventArgs args);
 
     /// <summary>
+    /// Event handler for completed http requests
+    /// </summary>
+    /// <param name="sender">FonaDevice that sent the notification</param>
+    /// <param name="args">Detailed information about the completed request</param>
+    public delegate void HttpResponseEventHandler(object sender, HttpResponseEventArgs args);
+
+    /// <summary>
     /// This class supports interactions with the Adafruit Fona GSM/GPRS breakout board.
     /// </summary>
     public partial class FonaDevice
     {
-        private const int DefaultCommandTimeout = -1; //10000;
+        private const int DefaultCommandTimeout = 10000;
+        private const int HttpTimeout = 30000;
         private const string AT = "AT";
         private const string OK = "OK";
         private const string FactoryResetCommand = "ATZ";
@@ -93,6 +101,18 @@ namespace Molarity.Hardare.AdafruitFona
         private const string DeleteSmsMessageCommand = "AT+CMGD=";
         private const string ListSmsMessagesCommand = "AT+CMGL=";
         private const string ListSmsMessagesReply = "+CMGL: ";
+        private const string HttpActionCommand = "AT+HTTPACTION=";
+        private const string HttpActionReply = "+HTTPACTION: ";
+        private const string HttpInitializeCommand = "AT+HTTPINIT";
+        private const string HttpTerminateCommand = "AT+HTTPTERM";
+        private const string SetHttpParameterCommand = "AT+HTTPPARA=";
+        private const string SetHttpSslCommand = "AT+HTTPSSL=";
+        private const string HttpReadCommand = "AT+HTTPREAD=";
+        private const string HttpReadReply = "+HTTPREAD: ";
+        private const string SetAttachGprs = "AT+CGATT=";
+        private const string ReadAttachGprs = "AT+CGATT?";
+        private const string ReadAttachGprsReply = "+CGATT: ";
+        private const string SetBearerProfile = "AT+SAPBR=";
 
         private static Thread _eventDispatchThread = null;
         private readonly SerialPort _port;
@@ -173,6 +193,13 @@ namespace Molarity.Hardare.AdafruitFona
         public event SmsMessageReceivedEventHandler SmsMessageReceived;
 
         /// <summary>
+        /// This event is raised when a response to an Http request is received. The arguments
+        /// contain the result of the matching http request.  You should not issue a new http request
+        /// until the results of the prior request are returned.
+        /// </summary>
+        public event HttpResponseEventHandler HttpResponseReceived;
+
+        /// <summary>
         /// Create a FonaDevice class for use in communicating with the Adafruit Fona GSM/GPRS breakout board.
         /// </summary>
         /// <param name="port">This port should be configured for 8 data bits, one stop bit, no parity at pretty much any speed. The Fona device will autobaud when you call .Reset</param>
@@ -187,6 +214,8 @@ namespace Molarity.Hardare.AdafruitFona
                 _eventDispatchThread = new Thread(EventDispatcher);
                 _eventDispatchThread.Start();
             }
+
+            this.HttpUserAgent = "Fona.net";
         }
 
         /// <summary>
@@ -529,6 +558,9 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+
+        #region SMS Support
+
         /// <summary>
         /// This value is true if the RI pin will transition when an SMS is received. This is
         /// not required for enabling SMS notification. If all you need is notification of new
@@ -703,9 +735,101 @@ namespace Molarity.Hardare.AdafruitFona
             return (SmsMessage[])result.ToArray(typeof (SmsMessage));
         }
 
-        //CMGD
+        #endregion
 
-        //HTTP stuff
+        #region GPRS
+
+        public string Apn
+        {
+            get; set;
+        }
+
+        public string ApnUsername { get; set; }
+        public string ApnPassword { get; set; }
+
+        public void EnableGprs(bool enable)
+        {
+            
+        }
+
+        public bool GprsAttached
+        {
+            get
+            {
+                var reply = SendCommandAndReadReply(ReadAttachGprs, ReadAttachGprsReply, false);
+                Expect(OK);
+                return (int.Parse(reply) != 0);                
+            }
+            set
+            {
+                if (value)
+                {
+                    SendAndExpect(SetAttachGprs + '1', OK);
+                    SendAndExpect(SetBearerProfile + "3,1,\"CONTYPE\",\"GPRS\"", OK);
+
+                    if (this.Apn == null || this.Apn.Length == 0)
+                        throw new FonaException("APN not set - cannot enable GPRS");
+
+                    SendAndExpect(SetBearerProfile + "3,1,\"APN\",\"" + this.Apn + '"', OK);
+
+                    if (this.ApnUsername != null && this.ApnUsername.Length > 0)
+                        SendAndExpect(SetBearerProfile + "3,1,\"USER\",\"" + this.ApnUsername + '"', OK);
+                    if (this.ApnPassword!= null && this.ApnPassword.Length > 0)
+                        SendAndExpect(SetBearerProfile + "3,1,\"PWD\",\"" + this.ApnPassword + '"', OK);
+
+                    SendAndExpect(SetBearerProfile + "1,1", OK);
+                }
+                else
+                {
+                    SendAndExpect(SetBearerProfile + "0,1", OK);
+                    SendAndExpect(SetAttachGprs + '0', OK);
+                }
+            }
+        }
+
+        #endregion
+
+        #region HTTP Support
+
+        public string HttpUserAgent { get; set; }
+
+        public void SendHttpRequest(string verb, string url, bool allowHttpRedirect, string body)
+        {
+            HttpInitialize(url, allowHttpRedirect);
+
+            string reply;
+            if (verb.ToUpper()=="GET")
+                SendAndExpect(HttpActionCommand + '0', OK);
+            else if (verb.ToUpper() == "POST")
+                SendAndExpect(HttpActionCommand + '1', OK);
+            else if (verb.ToUpper() == "HEAD")
+                SendAndExpect(HttpActionCommand + '2', OK);
+            else
+                throw new ArgumentException("Only GET, POST and HEAD are supported");
+        }
+
+        private void HttpInitialize(string url, bool allowHttpRedirect)
+        {
+            SendCommand(HttpTerminateCommand);
+            // We don't really care about the reply to this - in fact, it will fail the first time HttpInitialize is called
+            GetReplyWithTimeout(DefaultCommandTimeout);
+
+            SendAndExpect(HttpInitializeCommand, OK);
+            SendAndExpect(SetHttpParameterCommand + "\"CID\",1", OK);
+            if (this.HttpUserAgent!=null && this.HttpUserAgent.Length>0)
+                SendAndExpect(SetHttpParameterCommand + "\"UA\", \"" + this.HttpUserAgent + '"', OK);
+            SendAndExpect(SetHttpParameterCommand + "\"URL\",\"" + url + '"', OK);
+
+            SendAndExpect(SetHttpParameterCommand + "\"REDIR\"," + (allowHttpRedirect ? '1' : '0'), OK);
+            //SendAndExpect(SetHttpSslCommand + (allowHttpRedirect ? '1' : '0'), OK);
+        }
+
+        private void HttpTerminate()
+        {
+            SendAndExpect(HttpTerminateCommand, OK);
+        }
+
+        #endregion
 
         #region Sending Commands
 
@@ -989,7 +1113,7 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 var info = line.Substring(ListSmsMessagesReply.Length);
                 var tokens = info.Split(',');
-                if (tokens.Length >= 12)
+                if (tokens.Length > 11)
                 {
                     _cbStream = int.Parse(tokens[12]);
                     _stream = "";
@@ -1001,7 +1125,7 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 var info = line.Substring(ReadSmsMessageReply.Length);
                 var tokens = info.Split(',');
-                if (tokens.Length >= 12)
+                if (tokens.Length > 11)
                 {
                     _cbStream = int.Parse(tokens[11]);
                     _stream = "";
@@ -1009,12 +1133,43 @@ namespace Molarity.Hardare.AdafruitFona
                 // after stripping off the stream count, we still need to return this line
                 handled = false;
             }
+            else if (line.IndexOf(HttpActionReply) == 0)
+            {
+                var info = line.Substring(HttpActionReply.Length);
+                var tokens = info.Split(',');
+                if (tokens.Length > 2)
+                {
+                    var status = int.Parse(tokens[1]);
+                    var replyLength = int.Parse(tokens[2]);
+
+                    HandleHttpResponse(status, replyLength);
+                }
+            }
+            else if (line.IndexOf(HttpReadReply) == 0)
+            {
+                var info = line.Substring(HttpReadReply.Length);
+                _cbStream = int.Parse(info);
+                _stream = "";
+
+                // after stripping off the stream count, we still need to return this line
+                handled = false;
+            }
+            // we eat all of these so that they don't confuse anything else.  This is not a complete list, but it seems to be complete enough.
+            else if (line.IndexOf("+SAPBR") == 0 || line.IndexOf("+CPIN") == 0 || line.IndexOf("+PDP") == 0)
+            {
+                handled = true;
+            }
         }
 
         private class EventForDispatch
         {
             public object Sender;
             public object EventArgs;
+        }
+
+        private void HandleHttpResponse(int status, int replyLength)
+        {
+
         }
 
         private void RaiseTextRingEvent()

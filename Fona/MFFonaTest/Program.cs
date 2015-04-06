@@ -53,7 +53,18 @@ namespace MFFonaTest
             Debug.Print("IMEI = " + _fona.GetImei());
             Debug.Print("SIM CCID = " + _fona.GetSimCcid());
 
-            var status = _fona.GetNetworkStatus();
+            FonaDevice.NetworkStatus status;
+            do
+            {
+                status = _fona.GetNetworkStatus();
+                if (status.RegistrationStatus == FonaDevice.RegistrationStatus.Searching)
+                {
+                    Debug.Print("Searching...");
+                }
+                if (status.RegistrationStatus != FonaDevice.RegistrationStatus.Home && status.RegistrationStatus != FonaDevice.RegistrationStatus.Roaming)
+                    Thread.Sleep(1000);
+            } while (status.RegistrationStatus != FonaDevice.RegistrationStatus.Home && status.RegistrationStatus != FonaDevice.RegistrationStatus.Roaming);
+
             Debug.Print("We are currently connected to : " + status.RegistrationStatus.ToString());
             if (status.LocationAreaCode!=null)
                 Debug.Print("   Location area code : " + status.LocationAreaCode);
@@ -95,6 +106,14 @@ namespace MFFonaTest
             Debug.Print("Battery charge state : " + _fona.GetBatteryChargeState());
             Debug.Print("Battery charge percentage : " + _fona.GetBatteryChargePercentage() + "% of fully charged.");
             Debug.Print("ADC Voltage : " + _fona.GetAdcVoltage());
+
+            _fona.Apn = "internet";
+            _fona.GprsAttached = true;
+
+            var gprsState = _fona.GprsAttached;
+            Debug.Print("GPRS is " + (gprsState ? "Attached" : "Detached"));
+
+            _fona.SendHttpRequest("GET", "http://23.11.74.96/", true, null);
 
             bool state = true;
             int iCount = 0;
