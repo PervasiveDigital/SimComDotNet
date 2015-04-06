@@ -3,9 +3,14 @@
 
 using System;
 using System.Collections;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Text;
 using System.Threading;
+
+#if MF_FRAMEWORK
+using Microsoft.SPOT;
+#endif
 
 // Shared FonaDevice implementation
 
@@ -86,6 +91,7 @@ namespace Molarity.Hardare.AdafruitFona
         private const string ReadSmsMessage = "AT+CMGR=";
         private const string ReadSmsMessageReply = "+CMGR: ";
 
+        private static Thread _eventDispatchThread = null;
         private readonly SerialPort _port;
         private readonly object _lockSendExpect = new object();
         private bool _fIgnoreCLIP = false;
@@ -172,6 +178,12 @@ namespace Molarity.Hardare.AdafruitFona
             _port = port;
             _port.DataReceived += PortOnDataReceived;
             _port.Open();
+
+            if (_eventDispatchThread==null)
+            {
+                _eventDispatchThread = new Thread(EventDispatcher);
+                _eventDispatchThread.Start();
+            }
         }
 
         /// <summary>
@@ -503,7 +515,7 @@ namespace Molarity.Hardare.AdafruitFona
                 try
                 {
                     // This flag is used so that the input parser does not confuse the response to this command with the unsolicited CLIP
-                    //   notofication used by caller ID
+                    //   notification used by caller ID
                     _fIgnoreCLIP = true;
                     SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
                 }
@@ -761,6 +773,10 @@ namespace Molarity.Hardare.AdafruitFona
 
         #region Serial Helpers
 
+        private static readonly object _eventQueueLock = new object();
+        private static readonly ArrayList _eventQueue = new ArrayList();
+        private static readonly AutoResetEvent _eventEnqueued = new AutoResetEvent(false);
+
         private readonly object _responseQueueLock = new object();
         private readonly ArrayList _responseQueue = new ArrayList();
         private readonly AutoResetEvent _responseReceived = new AutoResetEvent(false);
@@ -774,7 +790,7 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 string newInput = ReadExisting();
 #if VERBOSE
-                Debug.Print("ReadExisting : " + newInput);
+                Dbg("ReadExisting : " + newInput);
 #endif
                 if (newInput != null && newInput.Length > 0)
                 {
@@ -812,55 +828,14 @@ namespace Molarity.Hardare.AdafruitFona
                             line = line.Substring(0, line.Length - 1);
                         if (line.Length > 0)
                         {
-                            bool fAddLine = false;
-                            if (line.ToUpper() == "RING")
-                            {
-                                // If we received a line with 'RING' on it, and the hardware ring pin
-                                //   is not enabled, then raise a ring event. In this case, the RING
-                                //   indication may be raised several times for a single incoming call.
-                                //   Otherwise, eat the RING string because it will just confuse us
-                                if (!this.HardwareRingIndicationEnabled)
-                                {
-                                    RaiseTextRingEvent();
-                                }
-                            }
-                            else if (line.IndexOf("+CLIP: ") == 0)
-                            {
-                                if (!_fIgnoreCLIP)
-                                {
-                                    // caller id information
-                                    RaiseCallerIdEvent(line.Substring(7));
-                                }
-                            }
-                            else if (line.IndexOf("+CMTI: ") == 0)
-                            {
-                                // caller id information
-                                RaiseSmsReceivedEvent(line.Substring(7));
-                            }
-                            else if (line.IndexOf(ReadSmsMessageReply) == 0)
-                            {
-                                // We have to handle this one differently
-                                var info = line.Substring(ReadSmsMessage.Length);
-                                var tokens = info.Split(',');
-                                if (tokens.Length >= 10)
-                                {
-                                    _cbStream = int.Parse(tokens[11]);
-                                    _stream = "";
-                                }
-                                // after stripping off the stream count, we still need to return this line
-                                fAddLine = true;
-                            }
-                            else
-                            {
-                                // If this was not one of the special response strings, add the line to the response queue
-                                fAddLine = true;
-                            }
-                            if (fAddLine)
+                            bool handled;
+                            HandleUnsolicitedResponses(line, out handled);
+                            if (!handled)
                             {
                                 lock (_responseQueueLock)
                                 {
 #if VERBOSE
-                                    Debug.Print("Received Line : " + line);
+                                    Dbg("Received Line : " + line);
 #endif
                                     _responseQueue.Add(line);
                                     _responseReceived.Set();
@@ -875,12 +850,61 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        private void HandleUnsolicitedResponses(string line, out bool handled)
+        {
+            handled = false;
+
+            if (line.ToUpper() == "RING")
+            {
+                // If we received a line with 'RING' on it, and the hardware ring pin
+                //   is not enabled, then raise a ring event. In this case, the RING
+                //   indication may be raised several times for a single incoming call.
+                //   Otherwise, eat the RING string because it will just confuse us
+                if (!this.HardwareRingIndicationEnabled)
+                {
+                    RaiseTextRingEvent();
+                    handled = true;
+                }
+            }
+            else if (line.IndexOf("+CLIP: ") == 0)
+            {
+                if (!_fIgnoreCLIP)
+                {
+                    // caller id information
+                    RaiseCallerIdEvent(line.Substring(7));
+                    handled = true;
+                }
+            }
+            else if (line.IndexOf("+CMTI: ") == 0)
+            {
+                // caller id information
+                RaiseSmsReceivedEvent(line.Substring(7));
+                handled = true;
+            }
+            else if (line.IndexOf(ReadSmsMessageReply) == 0)
+            {
+                // We have to handle this one differently
+                var info = line.Substring(ReadSmsMessage.Length);
+                var tokens = info.Split(',');
+                if (tokens.Length >= 10)
+                {
+                    _cbStream = int.Parse(tokens[11]);
+                    _stream = "";
+                }
+                // after stripping off the stream count, we still need to return this line
+                handled = false;
+            }
+        }
+
+        private class EventForDispatch
+        {
+            public object Sender;
+            public object EventArgs;
+        }
+
         private void RaiseTextRingEvent()
         {
-            if (this.Ringing != null)
-            {
-                this.Ringing(this,new RingingEventArgs(DateTime.UtcNow));
-            }
+            EnqueueEvent(this, new RingingEventArgs(DateTime.UtcNow));
         }
 
         private void RaiseCallerIdEvent(string callerId)
@@ -888,10 +912,7 @@ namespace Molarity.Hardare.AdafruitFona
             var tokens = callerId.Split(',');
             if (tokens.Length > 1)
             {
-                if (this.CallerIdReceived != null)
-                {
-                    this.CallerIdReceived(this, new CallerIdEventArgs(Unquote(tokens[0]), (AddressType)int.Parse(tokens[1])));
-                }
+                EnqueueEvent(this, new CallerIdEventArgs(Unquote(tokens[0]), (AddressType) int.Parse(tokens[1])));
             }
         }
 
@@ -903,10 +924,65 @@ namespace Molarity.Hardare.AdafruitFona
                 var storageCode = tokens[0];
                 var index = int.Parse(tokens[1]);
 
-                if (this.SmsMessageReceived != null)
+                EnqueueEvent(this, new SmsMessageReceivedEventArgs(storageCode, index));
+            }
+        }
+
+        private static void EnqueueEvent(object sender, EventArgs args)
+        {
+            lock (_eventQueueLock)
+            {
+                _eventQueue.Add(new EventForDispatch() { Sender = sender, EventArgs = args });
+                _eventEnqueued.Set();
+            }
+        }
+
+        private static void EventDispatcher()
+        {
+            try
+            {
+                while (true)
                 {
-                    this.SmsMessageReceived(this, new SmsMessageReceivedEventArgs(storageCode, index));
+                    object item;
+                    do
+                    {
+                        item = null;
+                        lock (_eventQueueLock)
+                        {
+                            if (_eventQueue.Count > 0)
+                            {
+                                item = _eventQueue[0];
+                                _eventQueue.RemoveAt(0);
+                            }
+                        }
+                        var eventForDispatch = item as EventForDispatch;
+                        if (eventForDispatch != null)
+                        {
+                            var device = (FonaDevice)eventForDispatch.Sender;
+                            if (eventForDispatch.EventArgs is RingingEventArgs)
+                            { 
+                                if (device.Ringing != null)
+                                    device.Ringing(device, (RingingEventArgs)eventForDispatch.EventArgs);
+                            }
+                            else if (eventForDispatch.EventArgs is CallerIdEventArgs)
+                            {
+                                if (device.CallerIdReceived != null)
+                                    device.CallerIdReceived(device, (CallerIdEventArgs) eventForDispatch.EventArgs);
+                            }
+                            else if (eventForDispatch.EventArgs is SmsMessageReceivedEventArgs)
+                            {
+                                if (device.SmsMessageReceived != null)
+                                    device.SmsMessageReceived(device, (SmsMessageReceivedEventArgs)eventForDispatch.EventArgs);
+                            }
+                        }
+                    } while (item != null);
+                    _eventEnqueued.WaitOne();
                 }
+            }
+            catch (Exception exc)
+            {
+                // yes, catch everything - this thread has to keep plugging on
+                Dbg("An exception has occurred while dispatching events : " + exc);
             }
         }
 
@@ -956,7 +1032,7 @@ namespace Molarity.Hardare.AdafruitFona
         private void WriteLine(string txt)
         {
 #if VERBOSE
-            Debug.Print("Sent: " + txt);
+            Dbg("Sent: " + txt);
 #endif
             this.Write(txt + "\r\n");
         }
@@ -976,5 +1052,14 @@ namespace Molarity.Hardare.AdafruitFona
 
         #endregion
 
+        [Conditional("DEBUG")]
+        private static void Dbg(string msg)
+        {
+#if MF_FRAMEWORK
+            Debug.Print(msg);
+#else
+            Debug.WriteLine(msg);
+#endif
+        }
     }
 }

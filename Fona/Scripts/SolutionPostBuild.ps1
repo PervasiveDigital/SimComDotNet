@@ -42,12 +42,7 @@ if ($nuspec)
 		Copy-Item -Path $TargetDir"*" -Destination $libDir"\net40" -Include "*.dll","*.pdb","*.xml"
 	}
 
-	# Copy source files
-#	$source = $SolutionDir + "Fona.Shared"
-#	Get-ChildItem $source -Recurse -Filter "*.cs" | Copy-Item -Destination {Join-Path $srcDir $_.FullName.Substring($source.length)}
-#	$source = $ProjectDir
-#	Get-ChildItem $source -Recurse -Filter "*.cs" -Exclude "obj","bin" | Copy-Item -Destination {Join-Path $srcDir $_.FullName.Substring($source.length)}
-
+	# Copy source files for symbol server
 	Copy-Item -Recurse -Path $SolutionDir"Fona.Shared" -Destination $srcDir -Filter "*.cs"
 	$target = $srcDir + "Fona.Shared"
 	if (test-path $target"\obj") { Remove-Item -Recurse $target"\obj" | out-null }
@@ -58,6 +53,7 @@ if ($nuspec)
 	if (test-path $target"\obj") { Remove-Item -Recurse $target"\obj" | out-null }
 	if (test-path $target"\bin") { Remove-Item -Recurse $target"\bin" | out-null }
 
+	# Create the nuget package
 	$output = $repoDir + $ConfigurationName
 	if (-not (test-path $output)) { mkdir $output | out-null }
 

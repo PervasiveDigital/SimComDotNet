@@ -99,13 +99,12 @@ namespace MFFonaTest
         private static void FonaOnSmsMessageReceived(object sender, SmsMessageReceivedEventArgs args)
         {
             Debug.Print("A new sms message has been received. Storage=" + args.Storage + ", index=" + args.MessageIndex);
-            //BUG: currently hanging because it is being called from within the serial loop
-            //var sms = ((FonaDevice)sender).GetSmsMessage(args.MessageIndex);
-            //Debug.Print("   Phone number : " + sms.Number);
-            //Debug.Print("   Address Type : " + sms.AddressType);
-            //Debug.Print("   Status : " + sms.Status);
-            //Debug.Print("   Timestamp : " + sms.Timestamp);
-            //Debug.Print("   Body : " + sms.Body);
+            var sms = ((FonaDevice)sender).GetSmsMessage(args.MessageIndex);
+            Debug.Print("   Phone number : " + sms.Number);
+            Debug.Print("   Address Type : " + sms.AddressType);
+            Debug.Print("   Status : " + sms.Status);
+            Debug.Print("   Timestamp : " + sms.Timestamp);
+            Debug.Print("   Body : " + sms.Body);
         }
 
         private static void FonaOnCallerIdReceived(object sender, CallerIdEventArgs args)
