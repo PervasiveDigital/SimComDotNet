@@ -583,6 +583,10 @@ namespace Molarity.Hardare.AdafruitFona
             return int.Parse(tokens[1]);
         }
 
+        /// <summary>
+        /// Delete a single SMS message
+        /// </summary>
+        /// <param name="index">Index of the message to delete</param>
         public void DeleteSmsMessage(int index)
         {
             SendAndExpect(SetSmsMode + "1", OK);
@@ -657,6 +661,12 @@ namespace Molarity.Hardare.AdafruitFona
             return new SmsMessage(index, SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]), (AddressType)int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]) , body);
         }
 
+        /// <summary>
+        /// Get all sms messages by message status
+        /// </summary>
+        /// <param name="status">The set of messages to retrieve. For instance, read vs unread vs all.</param>
+        /// <param name="fClearUnreadFlag"></param>
+        /// <returns></returns>
         public SmsMessage[] GetSmsMessages(SmsMessageStatus status, bool fClearUnreadFlag)
         {
             ArrayList result = new ArrayList();
