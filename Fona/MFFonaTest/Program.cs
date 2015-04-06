@@ -63,17 +63,32 @@ namespace MFFonaTest
             Debug.Print("Current RSSI : " + _fona.GetRssi());
 
             var count = _fona.GetSmsMessageCount();
-            Debug.Print("There are " + count + " received sms messages");
+            Debug.Print("There are " + count + " received sms messages in the store");
 
-            if (count > 0)
+            Debug.Print("These are your unread messages");
+            var messages = _fona.GetSmsMessages(SmsMessageStatus.ReceivedUnread, false);
+            foreach (var message in messages)
             {
-                var sms = _fona.GetSmsMessage(count);
-                Debug.Print("Latest text message:");
-                Debug.Print("   Phone number : " + sms.Number);
-                Debug.Print("   Address Type : " + sms.AddressType);
-                Debug.Print("   Status : " + sms.Status);
-                Debug.Print("   Timestamp : " + sms.Timestamp);
-                Debug.Print("   Body : " + sms.Body);
+                Debug.Print("   Index        : " + message.Index);
+                Debug.Print("   Phone number : " + message.Number);
+                Debug.Print("   Address Type : " + message.AddressType);
+                Debug.Print("   Status       : " + message.Status);
+                Debug.Print("   Timestamp    : " + message.Timestamp);
+                Debug.Print("   Body         : " + message.Body);
+                Debug.Print("");
+            }
+
+            Debug.Print("These are your read messages");
+            messages = _fona.GetSmsMessages(SmsMessageStatus.ReceivedRead, false);
+            foreach (var message in messages)
+            {
+                Debug.Print("   Index        : " + message.Index);
+                Debug.Print("   Phone number : " + message.Number);
+                Debug.Print("   Address Type : " + message.AddressType);
+                Debug.Print("   Status       : " + message.Status);
+                Debug.Print("   Timestamp    : " + message.Timestamp);
+                Debug.Print("   Body         : " + message.Body);
+                Debug.Print("");
             }
 
             Debug.Print("Battery Voltage : " + _fona.GetBatteryVoltage());

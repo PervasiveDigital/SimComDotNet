@@ -90,6 +90,9 @@ namespace Molarity.Hardare.AdafruitFona
         private const string SetSmsTextModeOutput = "AT+CSDH=";
         private const string ReadSmsMessage = "AT+CMGR=";
         private const string ReadSmsMessageReply = "+CMGR: ";
+        private const string DeleteSmsMessageCommand = "AT+CMGD=";
+        private const string ListSmsMessagesCommand = "AT+CMGL=";
+        private const string ListSmsMessagesReply = "+CMGL: ";
 
         private static Thread _eventDispatchThread = null;
         private readonly SerialPort _port;
@@ -526,8 +529,6 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
-        //TODO: support CMGL to download all SMS messages
-
         /// <summary>
         /// This value is true if the RI pin will transition when an SMS is received. This is
         /// not required for enabling SMS notification. If all you need is notification of new
@@ -582,6 +583,54 @@ namespace Molarity.Hardare.AdafruitFona
             return int.Parse(tokens[1]);
         }
 
+        public void DeleteSmsMessage(int index)
+        {
+            SendAndExpect(SetSmsMode + "1", OK);
+            SendAndExpect(DeleteSmsMessageCommand + index + ",0", OK);
+        }
+
+        /// <summary>
+        /// Specify which SMS messages the operation should affect
+        /// </summary>
+        public enum WhichMessages
+        {
+            /// <summary>
+            /// Only the single specified message
+            /// </summary>
+            SpecifiedMessageOnly = 0,
+            /// <summary>
+            /// All messages that have been read (leaving unread and unsent)
+            /// </summary>
+            AllReadMessages = 1,
+            /// <summary>
+            /// All messages marked as having been read or sent
+            /// </summary>
+            ReadOrSentMessages = 2,
+            /// <summary>
+            /// All messages except for received messages that are unread
+            /// </summary>
+            AllExceptUnread = 3,
+            /// <summary>
+            /// All messages regardless of status
+            /// </summary>
+            AllMessages = 4
+        }
+
+        /// <summary>
+        /// Delete all SMS messages with a specified status. Note that this command
+        /// can take a substantial amount of time to run (25s for 50 or more messages).
+        /// </summary>
+        /// <param name="which">Indicates which status(es) are to be used to select messages to be deleted.</param>
+        public void DeleteSmsMessages(WhichMessages which)
+        {
+            if (which == WhichMessages.SpecifiedMessageOnly)
+                throw new ArgumentException("Use DeleteSmsMessage(index) instead");
+
+            SendAndExpect(SetSmsMode + "1", OK);
+            // This command can take a long time to execute
+            SendAndExpect(DeleteSmsMessageCommand + "0," + (int)which, OK, 30000);
+        }
+
         /// <summary>
         /// Retrieve a received SMS message
         /// </summary>
@@ -605,7 +654,43 @@ namespace Molarity.Hardare.AdafruitFona
             if (tokens[4][tokens[4].Length - 1] == '"')
                 tokens[4] = tokens[4].Substring(0, tokens[4].Length - 1);
 
-            return new SmsMessage(SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]), (AddressType)int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]) , body);
+            return new SmsMessage(index, SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]), (AddressType)int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]) , body);
+        }
+
+        public SmsMessage[] GetSmsMessages(SmsMessageStatus status, bool fClearUnreadFlag)
+        {
+            ArrayList result = new ArrayList();
+            // Text mode
+            SendAndExpect(SetSmsMode + "1", OK);
+            // Show all parameters
+            SendAndExpect(SetSmsTextModeOutput + "1", OK);
+
+            SendCommand(ListSmsMessagesCommand + '"' + SmsMessage.ConvertToStatString(status) + "\"," + (fClearUnreadFlag ? "1" : "0"));
+            var reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
+            while (reply != OK)
+            {
+                var info = reply.Substring(ListSmsMessagesReply.Length);
+                var tokens = info.Split(',');
+                var body = GetReplyWithTimeout(DefaultCommandTimeout);
+
+                var index = int.Parse(tokens[0]);
+                var msgStat = SmsMessage.ParseMessageStatus(Unquote(tokens[1]));
+                var addrType = (AddressType) int.Parse(Unquote(tokens[6]));
+
+                // tokens 3 and 4 are a date and time with an embedded quote. Remove the quote remnants
+                if (tokens[4][0] == '"')
+                    tokens[4] = tokens[4].Substring(1);
+                if (tokens[5][tokens[5].Length - 1] == '"')
+                    tokens[5] = tokens[5].Substring(0, tokens[5].Length - 1);
+                var timestamp = ParseDateString(tokens[4], tokens[5]);
+
+                result.Add(new SmsMessage(index, msgStat, Unquote(tokens[2]), addrType, timestamp, body));
+
+                // Keep going until we eat an 'ok'
+                reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
+            }
+
+            return (SmsMessage[])result.ToArray(typeof (SmsMessage));
         }
 
         //CMGD
@@ -613,6 +698,15 @@ namespace Molarity.Hardare.AdafruitFona
         //HTTP stuff
 
         #region Sending Commands
+
+        private void SendCommand(string send)
+        {
+            lock (_lockSendExpect)
+            {
+                DiscardBufferedInput();
+                WriteLine(send);
+            }
+        }
 
         private void SendAndExpect(string send, string expect)
         {
@@ -881,12 +975,23 @@ namespace Molarity.Hardare.AdafruitFona
                 RaiseSmsReceivedEvent(line.Substring(7));
                 handled = true;
             }
+            else if (line.IndexOf(ListSmsMessagesReply) == 0)
+            {
+                var info = line.Substring(ListSmsMessagesReply.Length);
+                var tokens = info.Split(',');
+                if (tokens.Length >= 12)
+                {
+                    _cbStream = int.Parse(tokens[12]);
+                    _stream = "";
+                }
+                // after stripping off the stream count, we still need to return this line
+                handled = false;
+            }
             else if (line.IndexOf(ReadSmsMessageReply) == 0)
             {
-                // We have to handle this one differently
-                var info = line.Substring(ReadSmsMessage.Length);
+                var info = line.Substring(ReadSmsMessageReply.Length);
                 var tokens = info.Split(',');
-                if (tokens.Length >= 10)
+                if (tokens.Length >= 12)
                 {
                     _cbStream = int.Parse(tokens[11]);
                     _stream = "";

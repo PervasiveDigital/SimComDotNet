@@ -45,14 +45,21 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public class SmsMessage
     {
-        internal SmsMessage(SmsMessageStatus status, string senderPhoneNumber, AddressType addrType, DateTime timestamp, string body)
+        internal SmsMessage(int index, SmsMessageStatus status, string senderPhoneNumber, 
+            AddressType addrType, DateTime timestamp, string body)
         {
+            this.Index = index;
             this.Status = status;
             this.Number = senderPhoneNumber;
             this.Timestamp = timestamp;
             this.AddressType = addrType;
             this.Body = body;
         }
+
+        /// <summary>
+        /// The index of this message in the private store. This can be used for accessing or deleting the message.
+        /// </summary>
+        public int Index { get; private set; }
 
         /// <summary>
         /// The status and origin of this message
@@ -95,6 +102,25 @@ namespace Molarity.Hardare.AdafruitFona
                     return SmsMessageStatus.All;
                 default:
                     return SmsMessageStatus.Unknown;
+            }
+        }
+
+        internal static string ConvertToStatString(SmsMessageStatus status)
+        {
+            switch (status)
+            {
+                case SmsMessageStatus.ReceivedUnread:
+                    return "REC UNREAD";
+                case SmsMessageStatus.ReceivedRead:
+                    return "REC READ";
+                case SmsMessageStatus.StoredUnsent:
+                    return "STO UNSENT";
+                case SmsMessageStatus.StoredSent:
+                    return "STO SENT";
+                case SmsMessageStatus.All:
+                    return "ALL";
+                default:
+                    return "";
             }
         }
     }
