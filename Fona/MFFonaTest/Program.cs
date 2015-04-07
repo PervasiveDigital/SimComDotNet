@@ -114,7 +114,7 @@ namespace MFFonaTest
             Debug.Print("GPRS is " + (gprsState ? "Attached" : "Detached"));
 
             _fona.HttpResponseReceived += FonaOnHttpResponseReceived;
-            _fona.SendHttpRequest("GET", "http://www.prometheusengineering.net/", true, null);
+            _fona.SendHttpRequest("GET", "http://hell.org/", false, null);
 
             bool state = true;
             int iCount = 0;
@@ -123,14 +123,14 @@ namespace MFFonaTest
                 _onboardLed.Write(state);
                 state = !state;
                 Thread.Sleep(500);
-                if (++iCount == 20)
-                {
-                    Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
-                    if (_fona.GprsAttached)
-                        Debug.Print("GPRS is currently attached");
+                //if (++iCount == 20)
+                //{
+                //    Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
+                //    if (_fona.GprsAttached)
+                //        Debug.Print("GPRS is currently attached");
 
-                    iCount = 0;
-                }
+                //    iCount = 0;
+                //}
             }
         }
 

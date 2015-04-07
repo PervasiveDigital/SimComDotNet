@@ -9,7 +9,7 @@ namespace Molarity.Hardare.AdafruitFona
     {
         internal HttpResponseEventArgs(FonaHttpResponse response)
         {
-            
+            this.Response = response;
         }
 
         public FonaHttpResponse Response { get; private set; }

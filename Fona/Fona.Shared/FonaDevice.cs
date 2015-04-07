@@ -1018,7 +1018,7 @@ namespace Molarity.Hardare.AdafruitFona
         private readonly ArrayList _responseQueue = new ArrayList();
         private readonly AutoResetEvent _responseReceived = new AutoResetEvent(false);
         private string _buffer;
-        private string _stream = "";
+        private StringBuilder _stream = new StringBuilder();
         private int _cbStream = 0;
 
         private void PortOnDataReceived(object sender, SerialDataReceivedEventArgs serialDataReceivedEventArgs)
@@ -1039,17 +1039,18 @@ namespace Molarity.Hardare.AdafruitFona
                         //   until the count of desired characters == 0
                         while (_cbStream > 0 && _buffer.Length > 0)
                         {
-                            _stream += _buffer[0];
-                            _buffer = _buffer.Substring(1);
-                            --_cbStream;
+                            var eat = System.Math.Min(_buffer.Length, _cbStream);
+                            _stream.Append(_buffer.Substring(0, eat));
+                            _buffer = _buffer.Substring(eat);
+                            _cbStream -= eat;
                         }
                         // If we have fulfilled the stream request, then add the stream as a whole to the response queue
                         if (_cbStream == 0)
                         {
                             lock (_responseQueueLock)
                             {
-                                _responseQueue.Add(_stream);
-                                _stream = "";
+                                _responseQueue.Add(_stream.ToString());
+                                _stream.Clear();
                                 _responseReceived.Set();
                             }
                         }
@@ -1128,7 +1129,7 @@ namespace Molarity.Hardare.AdafruitFona
                 if (tokens.Length > 11)
                 {
                     _cbStream = int.Parse(tokens[12]);
-                    _stream = "";
+                    _stream.Clear();
                 }
                 // after stripping off the stream count, we still need to return this line
                 handled = false;
@@ -1140,7 +1141,7 @@ namespace Molarity.Hardare.AdafruitFona
                 if (tokens.Length > 11)
                 {
                     _cbStream = int.Parse(tokens[11]);
-                    _stream = "";
+                    _stream.Clear();
                 }
                 // after stripping off the stream count, we still need to return this line
                 handled = false;
@@ -1156,12 +1157,13 @@ namespace Molarity.Hardare.AdafruitFona
 
                     HandleHttpResponse(status, replyLength);
                 }
+                handled = true;
             }
             else if (line.IndexOf(HttpReadReply) == 0)
             {
                 var info = line.Substring(HttpReadReply.Length);
                 _cbStream = int.Parse(info);
-                _stream = "";
+                _stream.Clear();
 
                 // after stripping off the stream count, we still need to return this line
                 handled = false;
@@ -1185,16 +1187,18 @@ namespace Molarity.Hardare.AdafruitFona
             if (status >= 400)
             {
                 // Send eventargs with error
+                EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(status,null)));
                 return;
             }
             new Thread(() =>
             {
                 // Trigger the return of the body data
                 var reply = SendCommandAndReadReply(HttpReadCommand /*+ "0," + replyLength*/);
-                //TODO: Send eventargs with error
+                EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(-1, reply)));
 
                 var replyBody = GetReplyWithTimeout(DefaultCommandTimeout);
                 Expect(OK);
+                EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(status, replyBody)));
             }).Start();
         }
 
@@ -1270,6 +1274,11 @@ namespace Molarity.Hardare.AdafruitFona
                                 if (device.SmsMessageReceived != null)
                                     device.SmsMessageReceived(device,
                                         (SmsMessageReceivedEventArgs) eventForDispatch.EventArgs);
+                            }
+                            else if (eventForDispatch.EventArgs is HttpResponseEventArgs)
+                            {
+                                if (device.HttpResponseReceived!= null)
+                                    device.HttpResponseReceived(device, (HttpResponseEventArgs)eventForDispatch.EventArgs);
                             }
                         }
                     } while (item != null);
