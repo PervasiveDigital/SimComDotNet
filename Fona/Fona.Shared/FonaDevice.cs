@@ -1,5 +1,9 @@
 ﻿// Define this for very verbose debugging of the serial protocol interactions
-//#define VERBOSE
+#define VERBOSE
+// Define this to turn off timeouts, which can get in the way when you are single-stepping
+#if DEBUG
+#define SUSPEND_TIMEOUT
+#endif
 
 using System;
 using System.Collections;
@@ -50,7 +54,12 @@ namespace Molarity.Hardare.AdafruitFona
     /// </summary>
     public partial class FonaDevice
     {
+#if SUSPEND_TIMEOUT
+        // useful in debugging where the timeout gets in the way of single-stepping
+        private const int DefaultCommandTimeout = -1;
+#else
         private const int DefaultCommandTimeout = 10000;
+#endif
         private const int HttpTimeout = 30000;
         private const string AT = "AT";
         private const string OK = "OK";
@@ -107,7 +116,7 @@ namespace Molarity.Hardare.AdafruitFona
         private const string HttpTerminateCommand = "AT+HTTPTERM";
         private const string SetHttpParameterCommand = "AT+HTTPPARA=";
         private const string SetHttpSslCommand = "AT+HTTPSSL=";
-        private const string HttpReadCommand = "AT+HTTPREAD=";
+        private const string HttpReadCommand = "AT+HTTPREAD";
         private const string HttpReadReply = "+HTTPREAD: ";
         private const string SetAttachGprs = "AT+CGATT=";
         private const string ReadAttachGprs = "AT+CGATT?";
@@ -1048,7 +1057,7 @@ namespace Molarity.Hardare.AdafruitFona
 
                     // process whatever is left in the buffer (after fulfilling any stream requests)
                     var idxNewline = _buffer.IndexOf('\n');
-                    while (idxNewline != -1)
+                    while (idxNewline != -1 && _cbStream==0)
                     {
                         var line = _buffer.Substring(0, idxNewline);
                         _buffer = _buffer.Substring(idxNewline + 1);
@@ -1056,6 +1065,9 @@ namespace Molarity.Hardare.AdafruitFona
                             line = line.Substring(0, line.Length - 1);
                         if (line.Length > 0)
                         {
+#if VERBOSE
+                            Dbg("Received Line : " + line);
+#endif
                             bool handled;
                             HandleUnsolicitedResponses(line, out handled);
                             if (!handled)
@@ -1063,7 +1075,7 @@ namespace Molarity.Hardare.AdafruitFona
                                 lock (_responseQueueLock)
                                 {
 #if VERBOSE
-                                    Dbg("Received Line : " + line);
+                                    Dbg("Enqueue Line : " + line);
 #endif
                                     _responseQueue.Add(line);
                                     _responseReceived.Set();
@@ -1155,7 +1167,8 @@ namespace Molarity.Hardare.AdafruitFona
                 handled = false;
             }
             // we eat all of these so that they don't confuse anything else.  This is not a complete list, but it seems to be complete enough.
-            else if (line.IndexOf("+SAPBR") == 0 || line.IndexOf("+CPIN") == 0 || line.IndexOf("+PDP") == 0)
+            else if (line.IndexOf("+SAPBR:") == 0 || line.IndexOf("+CPIN:") == 0 || line.IndexOf("+PDP:") == 0 || line.IndexOf("+CTZV:") == 0 ||
+                line.IndexOf("*PSUTTZ:") == 0 || line.IndexOf("Call Ready") == 0 || line.IndexOf("SMS Ready") == 0 || line.IndexOf("DST:") == 0)
             {
                 handled = true;
             }
@@ -1169,7 +1182,20 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void HandleHttpResponse(int status, int replyLength)
         {
+            if (status >= 400)
+            {
+                // Send eventargs with error
+                return;
+            }
+            new Thread(() =>
+            {
+                // Trigger the return of the body data
+                var reply = SendCommandAndReadReply(HttpReadCommand /*+ "0," + replyLength*/);
+                //TODO: Send eventargs with error
 
+                var replyBody = GetReplyWithTimeout(DefaultCommandTimeout);
+                Expect(OK);
+            }).Start();
         }
 
         private void RaiseTextRingEvent()

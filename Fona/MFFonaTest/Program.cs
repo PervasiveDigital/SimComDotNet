@@ -49,9 +49,7 @@ namespace MFFonaTest
 //                _fona.EnableSmsNotification = true;
             _fona.SmsMessageReceived += FonaOnSmsMessageReceived;
 
-            // Output some identifying information
             Debug.Print("IMEI = " + _fona.GetImei());
-            Debug.Print("SIM CCID = " + _fona.GetSimCcid());
 
             FonaDevice.NetworkStatus status;
             do
@@ -64,6 +62,8 @@ namespace MFFonaTest
                 if (status.RegistrationStatus != FonaDevice.RegistrationStatus.Home && status.RegistrationStatus != FonaDevice.RegistrationStatus.Roaming)
                     Thread.Sleep(1000);
             } while (status.RegistrationStatus != FonaDevice.RegistrationStatus.Home && status.RegistrationStatus != FonaDevice.RegistrationStatus.Roaming);
+
+            Debug.Print("SIM CCID = " + _fona.GetSimCcid());
 
             Debug.Print("We are currently connected to : " + status.RegistrationStatus.ToString());
             if (status.LocationAreaCode!=null)
@@ -113,7 +113,8 @@ namespace MFFonaTest
             var gprsState = _fona.GprsAttached;
             Debug.Print("GPRS is " + (gprsState ? "Attached" : "Detached"));
 
-            _fona.SendHttpRequest("GET", "http://23.11.74.96/", true, null);
+            _fona.HttpResponseReceived += FonaOnHttpResponseReceived;
+            _fona.SendHttpRequest("GET", "http://www.prometheusengineering.net/", true, null);
 
             bool state = true;
             int iCount = 0;
@@ -125,9 +126,19 @@ namespace MFFonaTest
                 if (++iCount == 20)
                 {
                     Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
+                    if (_fona.GprsAttached)
+                        Debug.Print("GPRS is currently attached");
+
                     iCount = 0;
                 }
             }
+        }
+
+        private static void FonaOnHttpResponseReceived(object sender, HttpResponseEventArgs args)
+        {
+
+            // Normally you would do this after the last TCP action, but we are only grabbing one URL, so we are done now.
+            _fona.GprsAttached = false;
         }
 
         private static void FonaOnSmsMessageReceived(object sender, SmsMessageReceivedEventArgs args)
