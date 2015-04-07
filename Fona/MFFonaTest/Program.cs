@@ -16,6 +16,8 @@ namespace MFFonaTest
         private readonly static InterruptPort _powerStatePin = new InterruptPort((Cpu.Pin)16, true, Port.ResistorMode.Disabled, Port.InterruptMode.InterruptEdgeBoth);
         private readonly static InterruptPort _ringIndicatorPin = new InterruptPort(Cpu.Pin.GPIO_Pin15, true, Port.ResistorMode.Disabled, Port.InterruptMode.InterruptEdgeLow);
 
+        private static bool _httpRequestInProgress;
+
         public static void Main()
         {
             // Bluetooth command interface on 'O Molecule' device. You may need to choose a different serial port for your device.
@@ -113,6 +115,11 @@ namespace MFFonaTest
             var gprsState = _fona.GprsAttached;
             Debug.Print("GPRS is " + (gprsState ? "Attached" : "Detached"));
 
+            // This is a bit of a hack. The http interactions are complex and async and if other commands
+            //   are sent, it can break the protocol between us and the Fona. The fix in FonaDevice will be
+            //   a bit involved, so I am using this hack in the meantime to suspend the time query in the
+            //   loop below until the http request completes.
+            _httpRequestInProgress = true;
             _fona.HttpResponseReceived += FonaOnHttpResponseReceived;
             _fona.SendHttpRequest("GET", "http://hell.org/", false, null);
 
@@ -123,22 +130,28 @@ namespace MFFonaTest
                 _onboardLed.Write(state);
                 state = !state;
                 Thread.Sleep(500);
-                //if (++iCount == 20)
-                //{
-                //    Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
-                //    if (_fona.GprsAttached)
-                //        Debug.Print("GPRS is currently attached");
+                if (!_httpRequestInProgress)
+                {
+                    if (++iCount == 20)
+                    {
+                        Debug.Print("Current time = " + _fona.GetCurrentTime().ToString());
+                        if (_fona.GprsAttached)
+                            Debug.Print("GPRS is currently attached");
 
-                //    iCount = 0;
-                //}
+                        iCount = 0;
+                    }
+                }
             }
         }
 
         private static void FonaOnHttpResponseReceived(object sender, HttpResponseEventArgs args)
         {
+            Debug.Print("HTTP status : " + args.Response.Status);
+            Debug.Print("HTTP body : " + args.Response.Body);
 
             // Normally you would do this after the last TCP action, but we are only grabbing one URL, so we are done now.
             _fona.GprsAttached = false;
+            _httpRequestInProgress = false;
         }
 
         private static void FonaOnSmsMessageReceived(object sender, SmsMessageReceivedEventArgs args)

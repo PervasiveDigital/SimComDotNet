@@ -1,8 +1,8 @@
 ﻿// Define this for very verbose debugging of the serial protocol interactions
-#define VERBOSE
+//#define VERBOSE
 // Define this to turn off timeouts, which can get in the way when you are single-stepping
 #if DEBUG
-#define SUSPEND_TIMEOUT
+//#define SUSPEND_TIMEOUT
 #endif
 
 using System;
@@ -125,7 +125,14 @@ namespace Molarity.Hardare.AdafruitFona
 
         private static Thread _eventDispatchThread = null;
         private readonly SerialPort _port;
+
+        // lock order semantics : lockCommand -> lockSendExpect
+        // Ensure that only one command is in flight at a time
+        private readonly object _lockCommand = new object();
+        // Ensure that only one send-expect pair is in flight at a time
         private readonly object _lockSendExpect = new object();
+
+        // Do not process CLIP as an unsolicited response when we actually want it returned as a response
         private bool _fIgnoreCLIP = false;
 
         /// <summary>
@@ -233,36 +240,39 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public void Reset()
         {
-            DoHardwareReset();
-
-            DiscardBufferedInput();
-
-            // Synchronize auto-baud
-            for (int i = 0; i < 3; ++i)
+            lock (_lockCommand)
             {
+                DoHardwareReset();
+
+                DiscardBufferedInput();
+
+                // Synchronize auto-baud
+                for (int i = 0; i < 3; ++i)
+                {
+                    try
+                    {
+                        SendAndExpect(AT, OK, 500);
+                        Thread.Sleep(100);
+                    }
+                    catch (FonaException)
+                    {
+                        // Ignore exceptions that occur during synchronization
+                    }
+                }
+
                 try
                 {
-                    SendAndExpect(AT, OK, 500);
+                    SendAndExpect(EchoOffCommand, OK);
                     Thread.Sleep(100);
                 }
                 catch (FonaException)
                 {
                     // Ignore exceptions that occur during synchronization
                 }
-            }
 
-            try
-            {
+                // Throw, if we don't get an expected response here
                 SendAndExpect(EchoOffCommand, OK);
-                Thread.Sleep(100);
             }
-            catch (FonaException)
-            {
-                // Ignore exceptions that occur during synchronization
-            }
-
-            // Throw, if we don't get an expected response here
-            SendAndExpect(EchoOffCommand, OK);
         }
 
         /// <summary>
@@ -270,7 +280,10 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public void FactoryReset()
         {
-            SendAndExpect(FactoryResetCommand, OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(FactoryResetCommand, OK);
+            }
         }
 
         /// <summary>
@@ -280,8 +293,11 @@ namespace Molarity.Hardare.AdafruitFona
         /// <param name="code"></param>
         public void UnlockSim(string code)
         {
-            string command = UnlockCommand + code;
-            SendAndExpect(command, OK);
+            lock (_lockCommand)
+            {
+                string command = UnlockCommand + code;
+                SendAndExpect(command, OK);
+            }
         }
 
         /// <summary>
@@ -290,9 +306,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>SIM CCID</returns>
         public string GetSimCcid()
         {
-            var response = SendCommandAndReadReply(GetCcidCommand);
-            Expect(OK);
-            return response;
+            lock (_lockCommand)
+            {
+                var response = SendCommandAndReadReply(GetCcidCommand);
+                Expect(OK);
+                return response;
+            }
         }
 
         /// <summary>
@@ -301,9 +320,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>IMEI code from the Fona device</returns>
         public string GetImei()
         {
-            var response = SendCommandAndReadReply(GetImeiCommand);
-            Expect(OK);
-            return response;
+            lock (_lockCommand)
+            {
+                var response = SendCommandAndReadReply(GetImeiCommand);
+                Expect(OK);
+                return response;
+            }
         }
 
         /// <summary>
@@ -312,40 +334,18 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>The current date and time</returns>
         public DateTime GetCurrentTime()
         {
-            var reply = SendCommandAndReadReply(ReadRtcCommand, ReadRtcReply, true);
-            Expect(OK);
+            lock (_lockCommand)
+            {
+                var reply = SendCommandAndReadReply(ReadRtcCommand, ReadRtcReply, true);
+                Expect(OK);
 
-            var tokens = reply.Split(',');
-            // We should have two tokens - a date part and a time part
-            if (tokens.Length != 2)
-                throw new FonaCommandException(ReadRtcReply, ReadRtcReply, tokens[0]);
+                var tokens = reply.Split(',');
+                // We should have two tokens - a date part and a time part
+                if (tokens.Length != 2)
+                    throw new FonaCommandException(ReadRtcReply, ReadRtcReply, tokens[0]);
 
-            return ParseDateString(tokens[0], tokens[1]);
-        }
-
-        private DateTime ParseDateString(string dateString, string timeString)
-        {
-            var dateTokens = dateString.Split('/');
-            if (dateTokens.Length != 3)
-                throw new FonaException("Bad date format");
-            var year = 2000 + int.Parse(dateTokens[0]);
-            var month = int.Parse(dateTokens[1]);
-            var day = int.Parse(dateTokens[2]);
-
-            var timeTokens = timeString.Split(':');
-            if (timeTokens.Length != 3)
-                throw new FonaException("Bad time format");
-            var temp = timeTokens[2].Split('+');
-            timeTokens[2] = temp[0];
-            int tz = 0;
-            if (temp.Length == 2)
-                tz = int.Parse(temp[1]);
-            var hour = int.Parse(timeTokens[0]);
-            var minute = int.Parse(timeTokens[1]);
-            var second = int.Parse(timeTokens[2]);
-            var result = new DateTime(year, month, day, hour, minute, second);
-            //result.AddHours(tz);
-            return new DateTime(result.Ticks, DateTimeKind.Local);
+                return ParseDateString(tokens[0], tokens[1]);
+            }
         }
 
         /// <summary>
@@ -360,16 +360,22 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadLocalTimeStampEnable, ReadLocalTimeStampEnableReply, false);
-                Expect(OK);
-                return (int.Parse(reply) != 0);
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadLocalTimeStampEnable, ReadLocalTimeStampEnableReply, false);
+                    Expect(OK);
+                    return (int.Parse(reply) != 0);
+                }
             }
             set
             {
-                if (value == this.RtcEnabled)
-                    return;
-                SendAndExpect(SetLocalTimeStampEnable + (value ? "1" : "0"), OK);
-                SendAndExpect(WriteNvram, OK);
+                lock (_lockCommand)
+                {
+                    if (value == this.RtcEnabled)
+                        return;
+                    SendAndExpect(SetLocalTimeStampEnable + (value ? "1" : "0"), OK);
+                    SendAndExpect(WriteNvram, OK);
+                }
             }
         }
 
@@ -379,20 +385,23 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>A NetworkStatus structure indicating the current registration status</returns>
         public NetworkStatus GetNetworkStatus()
         {
-            NetworkStatus result = new NetworkStatus();
+            lock (_lockCommand)
+            {
+                NetworkStatus result = new NetworkStatus();
 
-            var tokens = SendCommandAndParseReply(ReadNetworkStatus, ReadNetworkStatusReply, ',', false);
-            Expect(OK);
-            if (tokens.Length < 2)
-                throw new FonaException("Bad reply to ReadNetworkStatus command");
-            var n = int.Parse(tokens[0]);
-            result.RegistrationStatus = (RegistrationStatus)int.Parse(tokens[1]);
-            if (tokens.Length > 2)
-                result.LocationAreaCode = tokens[3];
-            if (tokens.Length > 3)
-                result.CellId = tokens[4];
+                var tokens = SendCommandAndParseReply(ReadNetworkStatus, ReadNetworkStatusReply, ',', false);
+                Expect(OK);
+                if (tokens.Length < 2)
+                    throw new FonaException("Bad reply to ReadNetworkStatus command");
+                var n = int.Parse(tokens[0]);
+                result.RegistrationStatus = (RegistrationStatus) int.Parse(tokens[1]);
+                if (tokens.Length > 2)
+                    result.LocationAreaCode = tokens[3];
+                if (tokens.Length > 3)
+                    result.CellId = tokens[4];
 
-            return result;
+                return result;
+            }
         }
 
         /// <summary>
@@ -402,9 +411,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns></returns>
         public int GetRssi()
         {
-            var tokens = SendCommandAndParseReply(ReadRssi, ReadRssiReply, ',', false);
-            Expect(OK);
-            return int.Parse(tokens[0]);
+            lock (_lockCommand)
+            {
+                var tokens = SendCommandAndParseReply(ReadRssi, ReadRssiReply, ',', false);
+                Expect(OK);
+                return int.Parse(tokens[0]);
+            }
         }
 
         /// <summary>
@@ -413,9 +425,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>Battery voltage in mV</returns>
         public int GetBatteryVoltage()
         {
-            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
-            Expect(OK);
-            return int.Parse(tokens[2]);
+            lock (_lockCommand)
+            {
+                var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+                Expect(OK);
+                return int.Parse(tokens[2]);
+            }
         }
 
         /// <summary>
@@ -443,9 +458,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>BatteryChargeState enum identifying the current charging state</returns>
         public BatteryChargeState GetBatteryChargeState()
         {
-            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
-            Expect(OK);
-            return (BatteryChargeState)int.Parse(tokens[0]);
+            lock (_lockCommand)
+            {
+                var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+                Expect(OK);
+                return (BatteryChargeState) int.Parse(tokens[0]);
+            }
         }
 
 
@@ -455,9 +473,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>The current charge state as a percentage (*100) of fully charged</returns>
         public int GetBatteryChargePercentage()
         {
-            var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
-            Expect(OK);
-            return int.Parse(tokens[1]);
+            lock (_lockCommand)
+            {
+                var tokens = SendCommandAndParseReply(ReadBatteryState, ReadBatteryStateReply, ',', false);
+                Expect(OK);
+                return int.Parse(tokens[1]);
+            }
         }
 
         /// <summary>
@@ -466,9 +487,12 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>ADC voltage in mV</returns>
         public int GetAdcVoltage()
         {
-            var tokens = SendCommandAndParseReply(ReadAdcVoltage, ReadAdcVoltageReply, ',', false);
-            Expect(OK);
-            return int.Parse(tokens[1]);
+            lock (_lockCommand)
+            {
+                var tokens = SendCommandAndParseReply(ReadAdcVoltage, ReadAdcVoltageReply, ',', false);
+                Expect(OK);
+                return int.Parse(tokens[1]);
+            }
         }
 
         /// <summary>
@@ -478,13 +502,19 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadAudioChannel, ReadAudioChannelReply, false);
-                Expect(OK);
-                return int.Parse(reply) == 1;
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadAudioChannel, ReadAudioChannelReply, false);
+                    Expect(OK);
+                    return int.Parse(reply) == 1;
+                }
             }
             set
             {
-                SendAndExpect(SetAudioChannel + (value ? "1" : "0"),OK);
+                lock (_lockCommand)
+                {
+                    SendAndExpect(SetAudioChannel + (value ? "1" : "0"), OK);
+                }
             }
         }
 
@@ -495,15 +525,21 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadVolume, ReadVolumeReply, false);
-                Expect(OK);
-                return int.Parse(reply);
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadVolume, ReadVolumeReply, false);
+                    Expect(OK);
+                    return int.Parse(reply);
+                }
             }
             set
             {
-                if (value < 0 || value > 100)
-                    throw new ArgumentException("value must be between 0 and 100");
-                SendAndExpect(SetVolume + value.ToString(), OK);                
+                lock (_lockCommand)
+                {
+                    if (value < 0 || value > 100)
+                        throw new ArgumentException("value must be between 0 and 100");
+                    SendAndExpect(SetVolume + value.ToString(), OK);
+                }
             }
         }
 
@@ -513,7 +549,10 @@ namespace Molarity.Hardare.AdafruitFona
         /// <param name="number">The number to call</param>
         public void CallPhone(string number)
         {
-            SendAndExpect(DialCommand + number + ";", OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(DialCommand + number + ";", OK);
+            }
         }
 
         /// <summary>
@@ -521,7 +560,10 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public void HangUp()
         {
-            SendAndExpect(HangUpCommand, OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(HangUpCommand, OK);
+            }
         }
 
         /// <summary>
@@ -529,7 +571,10 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public void AnswerIncomingCall()
         {
-            SendAndExpect(AnswerCommand, OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(AnswerCommand, OK);
+            }
         }
 
         /// <summary>
@@ -537,7 +582,10 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         public void Redial()
         {
-            SendAndExpect(RedialCommand, OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(RedialCommand, OK);
+            }
         }
 
         /// <summary>
@@ -547,22 +595,28 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var tokens = SendCommandAndParseReply(ReadEnableCallerId, ReadEnableCallerIdReply, ',', false);
-                Expect(OK);
-                return int.Parse(tokens[0]) == 1;
+                lock (_lockCommand)
+                {
+                    var tokens = SendCommandAndParseReply(ReadEnableCallerId, ReadEnableCallerIdReply, ',', false);
+                    Expect(OK);
+                    return int.Parse(tokens[0]) == 1;
+                }
             }
             set
             {
-                try
+                lock (_lockCommand)
                 {
-                    // This flag is used so that the input parser does not confuse the response to this command with the unsolicited CLIP
-                    //   notification used by caller ID
-                    _fIgnoreCLIP = true;
-                    SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
-                }
-                finally
-                {
-                    _fIgnoreCLIP = false;
+                    try
+                    {
+                        // This flag is used so that the input parser does not confuse the response to this command with the unsolicited CLIP
+                        //   notification used by caller ID
+                        _fIgnoreCLIP = true;
+                        SendAndExpect(SetEnableCallerId + (value ? "1" : "0"), OK);
+                    }
+                    finally
+                    {
+                        _fIgnoreCLIP = false;
+                    }
                 }
             }
         }
@@ -579,13 +633,20 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadEnableSmsRingIndicator, ReadEnableSmsRingIndicatorReply, false);
-                Expect(OK);
-                return (int.Parse(reply) != 0);
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadEnableSmsRingIndicator, ReadEnableSmsRingIndicatorReply,
+                        false);
+                    Expect(OK);
+                    return (int.Parse(reply) != 0);
+                }
             }
             set
             {
-                SendAndExpect(SetEnableSmsRingIndicator + (value ? "1" : "0"), OK);
+                lock (_lockCommand)
+                {
+                    SendAndExpect(SetEnableSmsRingIndicator + (value ? "1" : "0"), OK);
+                }
             }
         }
 
@@ -596,15 +657,21 @@ namespace Molarity.Hardare.AdafruitFona
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadEnableSmsNotification, ReadEnableSmsNotificationReply, false);
-                Expect(OK);
-                return (int.Parse(reply) != 0);
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadEnableSmsNotification, ReadEnableSmsNotificationReply, false);
+                    Expect(OK);
+                    return (int.Parse(reply) != 0);
+                }
             }
             set
             {
-                // Use a mode that will buffer the notification if we are using the data channel (e.g., PPP connection)
-                // The ,1 indicates that we want the index of the message returned too.
-                SendAndExpect(SetEnableSmsNotification + (value ? "2,1" : "0"), OK);
+                lock (_lockCommand)
+                {
+                    // Use a mode that will buffer the notification if we are using the data channel (e.g., PPP connection)
+                    // The ,1 indicates that we want the index of the message returned too.
+                    SendAndExpect(SetEnableSmsNotification + (value ? "2,1" : "0"), OK);
+                }
             }
         }
 
@@ -614,14 +681,17 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>The count of stored messages</returns>
         public int GetSmsMessageCount()
         {
-            SendAndExpect(SetSmsMode + "1", OK);
-            var tokens = SendCommandAndParseReply(ReadSmsMessageCount, ReadSmsMessageCountReply, ',', false);
-            Expect(OK);
-            if (tokens.Length!=9)
-                throw new FonaException("Bad response - expected 9 tokens and received " + tokens.Length);
+            lock (_lockCommand)
+            {
+                SendAndExpect(SetSmsMode + "1", OK);
+                var tokens = SendCommandAndParseReply(ReadSmsMessageCount, ReadSmsMessageCountReply, ',', false);
+                Expect(OK);
+                if (tokens.Length != 9)
+                    throw new FonaException("Bad response - expected 9 tokens and received " + tokens.Length);
 
-            // Return the amount of used storage for reading messages
-            return int.Parse(tokens[1]);
+                // Return the amount of used storage for reading messages
+                return int.Parse(tokens[1]);
+            }
         }
 
         /// <summary>
@@ -630,8 +700,11 @@ namespace Molarity.Hardare.AdafruitFona
         /// <param name="index">Index of the message to delete</param>
         public void DeleteSmsMessage(int index)
         {
-            SendAndExpect(SetSmsMode + "1", OK);
-            SendAndExpect(DeleteSmsMessageCommand + index + ",0", OK);
+            lock (_lockCommand)
+            {
+                SendAndExpect(SetSmsMode + "1", OK);
+                SendAndExpect(DeleteSmsMessageCommand + index + ",0", OK);
+            }
         }
 
         /// <summary>
@@ -668,12 +741,15 @@ namespace Molarity.Hardare.AdafruitFona
         /// <param name="which">Indicates which status(es) are to be used to select messages to be deleted.</param>
         public void DeleteSmsMessages(WhichMessages which)
         {
-            if (which == WhichMessages.SpecifiedMessageOnly)
-                throw new ArgumentException("Use DeleteSmsMessage(index) instead");
+            lock (_lockCommand)
+            {
+                if (which == WhichMessages.SpecifiedMessageOnly)
+                    throw new ArgumentException("Use DeleteSmsMessage(index) instead");
 
-            SendAndExpect(SetSmsMode + "1", OK);
-            // This command can take a long time to execute
-            SendAndExpect(DeleteSmsMessageCommand + "0," + (int)which, OK, 30000);
+                SendAndExpect(SetSmsMode + "1", OK);
+                // This command can take a long time to execute
+                SendAndExpect(DeleteSmsMessageCommand + "0," + (int) which, OK, 30000);
+            }
         }
 
         /// <summary>
@@ -683,23 +759,27 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns>An object containing the SMS message and related metadata</returns>
         public SmsMessage GetSmsMessage(int index)
         {
-            // Text mode
-            SendAndExpect(SetSmsMode + "1", OK);
+            lock (_lockCommand)
+            {
+                // Text mode
+                SendAndExpect(SetSmsMode + "1", OK);
 
-            // Show all parameters
-            SendAndExpect(SetSmsTextModeOutput + "1", OK);
+                // Show all parameters
+                SendAndExpect(SetSmsTextModeOutput + "1", OK);
 
-            var tokens = SendCommandAndParseReply(ReadSmsMessage + index, ReadSmsMessageReply, ',', false);
-            var body = GetReplyWithTimeout(DefaultCommandTimeout);
-            Expect(OK);
+                var tokens = SendCommandAndParseReply(ReadSmsMessage + index, ReadSmsMessageReply, ',', false);
+                var body = GetReplyWithTimeout(DefaultCommandTimeout);
+                Expect(OK);
 
-            // tokens 3 and 4 are a date and time with an embedded quote, which our ParseReply code splits in two - remove the quote remnants
-            if (tokens[3][0] == '"')
-                tokens[3] = tokens[3].Substring(1);
-            if (tokens[4][tokens[4].Length - 1] == '"')
-                tokens[4] = tokens[4].Substring(0, tokens[4].Length - 1);
+                // tokens 3 and 4 are a date and time with an embedded quote, which our ParseReply code splits in two - remove the quote remnants
+                if (tokens[3][0] == '"')
+                    tokens[3] = tokens[3].Substring(1);
+                if (tokens[4][tokens[4].Length - 1] == '"')
+                    tokens[4] = tokens[4].Substring(0, tokens[4].Length - 1);
 
-            return new SmsMessage(index, SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]), (AddressType)int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]) , body);
+                return new SmsMessage(index, SmsMessage.ParseMessageStatus(Unquote(tokens[0])), Unquote(tokens[1]),
+                    (AddressType) int.Parse(Unquote(tokens[5])), ParseDateString(tokens[3], tokens[4]), body);
+            }
         }
 
         /// <summary>
@@ -710,38 +790,42 @@ namespace Molarity.Hardare.AdafruitFona
         /// <returns></returns>
         public SmsMessage[] GetSmsMessages(SmsMessageStatus status, bool fClearUnreadFlag)
         {
-            ArrayList result = new ArrayList();
-            // Text mode
-            SendAndExpect(SetSmsMode + "1", OK);
-            // Show all parameters
-            SendAndExpect(SetSmsTextModeOutput + "1", OK);
-
-            SendCommand(ListSmsMessagesCommand + '"' + SmsMessage.ConvertToStatString(status) + "\"," + (fClearUnreadFlag ? "1" : "0"));
-            var reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
-            while (reply != OK)
+            lock (_lockCommand)
             {
-                var info = reply.Substring(ListSmsMessagesReply.Length);
-                var tokens = info.Split(',');
-                var body = GetReplyWithTimeout(DefaultCommandTimeout);
+                ArrayList result = new ArrayList();
+                // Text mode
+                SendAndExpect(SetSmsMode + "1", OK);
+                // Show all parameters
+                SendAndExpect(SetSmsTextModeOutput + "1", OK);
 
-                var index = int.Parse(tokens[0]);
-                var msgStat = SmsMessage.ParseMessageStatus(Unquote(tokens[1]));
-                var addrType = (AddressType) int.Parse(Unquote(tokens[6]));
+                SendCommand(ListSmsMessagesCommand + '"' + SmsMessage.ConvertToStatString(status) + "\"," +
+                            (fClearUnreadFlag ? "1" : "0"));
+                var reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
+                while (reply != OK)
+                {
+                    var info = reply.Substring(ListSmsMessagesReply.Length);
+                    var tokens = info.Split(',');
+                    var body = GetReplyWithTimeout(DefaultCommandTimeout);
 
-                // tokens 3 and 4 are a date and time with an embedded quote. Remove the quote remnants
-                if (tokens[4][0] == '"')
-                    tokens[4] = tokens[4].Substring(1);
-                if (tokens[5][tokens[5].Length - 1] == '"')
-                    tokens[5] = tokens[5].Substring(0, tokens[5].Length - 1);
-                var timestamp = ParseDateString(tokens[4], tokens[5]);
+                    var index = int.Parse(tokens[0]);
+                    var msgStat = SmsMessage.ParseMessageStatus(Unquote(tokens[1]));
+                    var addrType = (AddressType) int.Parse(Unquote(tokens[6]));
 
-                result.Add(new SmsMessage(index, msgStat, Unquote(tokens[2]), addrType, timestamp, body));
+                    // tokens 3 and 4 are a date and time with an embedded quote. Remove the quote remnants
+                    if (tokens[4][0] == '"')
+                        tokens[4] = tokens[4].Substring(1);
+                    if (tokens[5][tokens[5].Length - 1] == '"')
+                        tokens[5] = tokens[5].Substring(0, tokens[5].Length - 1);
+                    var timestamp = ParseDateString(tokens[4], tokens[5]);
 
-                // Keep going until we eat an 'ok'
-                reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
+                    result.Add(new SmsMessage(index, msgStat, Unquote(tokens[2]), addrType, timestamp, body));
+
+                    // Keep going until we eat an 'ok'
+                    reply = GetReplyWithTimeout(DefaultCommandTimeout).Trim();
+                }
+
+                return (SmsMessage[]) result.ToArray(typeof (SmsMessage));
             }
-
-            return (SmsMessage[])result.ToArray(typeof (SmsMessage));
         }
 
         #endregion
@@ -756,42 +840,43 @@ namespace Molarity.Hardare.AdafruitFona
         public string ApnUsername { get; set; }
         public string ApnPassword { get; set; }
 
-        public void EnableGprs(bool enable)
-        {
-            
-        }
-
         public bool GprsAttached
         {
             get
             {
-                var reply = SendCommandAndReadReply(ReadAttachGprs, ReadAttachGprsReply, false);
-                Expect(OK);
-                return (int.Parse(reply) != 0);                
+                lock (_lockCommand)
+                {
+                    var reply = SendCommandAndReadReply(ReadAttachGprs, ReadAttachGprsReply, false);
+                    Expect(OK);
+                    return (int.Parse(reply) != 0);
+                }
             }
             set
             {
-                if (value)
+                lock (_lockCommand)
                 {
-                    SendAndExpect(SetAttachGprs + '1', OK);
-                    SendAndExpect(SetBearerProfile + "3,1,\"CONTYPE\",\"GPRS\"", OK);
+                    if (value)
+                    {
+                        SendAndExpect(SetAttachGprs + '1', OK);
+                        SendAndExpect(SetBearerProfile + "3,1,\"CONTYPE\",\"GPRS\"", OK);
 
-                    if (this.Apn == null || this.Apn.Length == 0)
-                        throw new FonaException("APN not set - cannot enable GPRS");
+                        if (this.Apn == null || this.Apn.Length == 0)
+                            throw new FonaException("APN not set - cannot enable GPRS");
 
-                    SendAndExpect(SetBearerProfile + "3,1,\"APN\",\"" + this.Apn + '"', OK);
+                        SendAndExpect(SetBearerProfile + "3,1,\"APN\",\"" + this.Apn + '"', OK);
 
-                    if (this.ApnUsername != null && this.ApnUsername.Length > 0)
-                        SendAndExpect(SetBearerProfile + "3,1,\"USER\",\"" + this.ApnUsername + '"', OK);
-                    if (this.ApnPassword!= null && this.ApnPassword.Length > 0)
-                        SendAndExpect(SetBearerProfile + "3,1,\"PWD\",\"" + this.ApnPassword + '"', OK);
+                        if (this.ApnUsername != null && this.ApnUsername.Length > 0)
+                            SendAndExpect(SetBearerProfile + "3,1,\"USER\",\"" + this.ApnUsername + '"', OK);
+                        if (this.ApnPassword != null && this.ApnPassword.Length > 0)
+                            SendAndExpect(SetBearerProfile + "3,1,\"PWD\",\"" + this.ApnPassword + '"', OK);
 
-                    SendAndExpect(SetBearerProfile + "1,1", OK);
-                }
-                else
-                {
-                    SendAndExpect(SetBearerProfile + "0,1", OK);
-                    SendAndExpect(SetAttachGprs + '0', OK);
+                        SendAndExpect(SetBearerProfile + "1,1", OK);
+                    }
+                    else
+                    {
+                        SendAndExpect(SetBearerProfile + "0,1", OK);
+                        SendAndExpect(SetAttachGprs + '0', OK);
+                    }
                 }
             }
         }
@@ -804,17 +889,20 @@ namespace Molarity.Hardare.AdafruitFona
 
         public void SendHttpRequest(string verb, string url, bool allowHttpRedirect, string body)
         {
-            HttpInitialize(url, allowHttpRedirect);
+            lock (_lockCommand)
+            {
+                HttpInitialize(url, allowHttpRedirect);
 
-            string reply;
-            if (verb.ToUpper()=="GET")
-                SendAndExpect(HttpActionCommand + '0', OK);
-            else if (verb.ToUpper() == "POST")
-                SendAndExpect(HttpActionCommand + '1', OK);
-            else if (verb.ToUpper() == "HEAD")
-                SendAndExpect(HttpActionCommand + '2', OK);
-            else
-                throw new ArgumentException("Only GET, POST and HEAD are supported");
+                string reply;
+                if (verb.ToUpper() == "GET")
+                    SendAndExpect(HttpActionCommand + '0', OK);
+                else if (verb.ToUpper() == "POST")
+                    SendAndExpect(HttpActionCommand + '1', OK);
+                else if (verb.ToUpper() == "HEAD")
+                    SendAndExpect(HttpActionCommand + '2', OK);
+                else
+                    throw new ArgumentException("Only GET, POST and HEAD are supported");
+            }
         }
 
         private void HttpInitialize(string url, bool allowHttpRedirect)
@@ -1187,6 +1275,7 @@ namespace Molarity.Hardare.AdafruitFona
             if (status >= 400)
             {
                 // Send eventargs with error
+                HttpTerminate();
                 EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(status,null)));
                 return;
             }
@@ -1194,10 +1283,15 @@ namespace Molarity.Hardare.AdafruitFona
             {
                 // Trigger the return of the body data
                 var reply = SendCommandAndReadReply(HttpReadCommand /*+ "0," + replyLength*/);
-                EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(-1, reply)));
+                if (reply.IndexOf("ERROR") != -1)
+                {
+                    HttpTerminate();
+                    EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(-1, reply)));
+                }
 
                 var replyBody = GetReplyWithTimeout(DefaultCommandTimeout);
                 Expect(OK);
+                HttpTerminate();
                 EnqueueEvent(this, new HttpResponseEventArgs(new FonaHttpResponse(status, replyBody)));
             }).Start();
         }
@@ -1367,5 +1461,31 @@ namespace Molarity.Hardare.AdafruitFona
             Debug.WriteLine(msg);
 #endif
         }
+
+        private DateTime ParseDateString(string dateString, string timeString)
+        {
+            var dateTokens = dateString.Split('/');
+            if (dateTokens.Length != 3)
+                throw new FonaException("Bad date format");
+            var year = 2000 + int.Parse(dateTokens[0]);
+            var month = int.Parse(dateTokens[1]);
+            var day = int.Parse(dateTokens[2]);
+
+            var timeTokens = timeString.Split(':');
+            if (timeTokens.Length != 3)
+                throw new FonaException("Bad time format");
+            var temp = timeTokens[2].Split('+');
+            timeTokens[2] = temp[0];
+            int tz = 0;
+            if (temp.Length == 2)
+                tz = int.Parse(temp[1]);
+            var hour = int.Parse(timeTokens[0]);
+            var minute = int.Parse(timeTokens[1]);
+            var second = int.Parse(timeTokens[2]);
+            var result = new DateTime(year, month, day, hour, minute, second);
+            //result.AddHours(tz);
+            return new DateTime(result.Ticks, DateTimeKind.Local);
+        }
+
     }
 }
