@@ -832,14 +832,29 @@ namespace Molarity.Hardare.AdafruitFona
 
         #region GPRS
 
+        /// <summary>
+        /// The access point name to use for GPRS. Contact your carrier for this information
+        /// </summary>
         public string Apn
         {
             get; set;
         }
 
+        /// <summary>
+        /// The optional username to use when signing in to GPRS. Contact your carrier for this information.
+        /// </summary>
         public string ApnUsername { get; set; }
+
+        /// <summary>
+        /// The optional password to use when signing in to GPRS. Contact your carrier for this information.
+        /// </summary>
         public string ApnPassword { get; set; }
 
+        /// <summary>
+        /// Query (get) this to see if you are attached to gprs. Even if it returns true, you may need to explicitly set it to true again
+        /// in order to apply updated GPRS parameters. Set this property to true to connect to GPRS (the red Fona led should flash rapidly
+        /// when connected). Set this property to false to disconnect from GPRS (the Fona light should return to flashing slowly).
+        /// </summary>
         public bool GprsAttached
         {
             get
@@ -885,15 +900,24 @@ namespace Molarity.Hardare.AdafruitFona
 
         #region HTTP Support
 
+        /// <summary>
+        /// The UserAgent to be used in HTTP requests
+        /// </summary>
         public string HttpUserAgent { get; set; }
 
+        /// <summary>
+        /// Send an http request
+        /// </summary>
+        /// <param name="verb">The HTTP verb to use. Must be "GET", "POST" or "HEAD"</param>
+        /// <param name="url">The full URL that the request will be sent to</param>
+        /// <param name="allowHttpRedirect">TRUE to allow https redirects (may not fully function)</param>
+        /// <param name="body">The body to send with the request</param>
         public void SendHttpRequest(string verb, string url, bool allowHttpRedirect, string body)
         {
             lock (_lockCommand)
             {
                 HttpInitialize(url, allowHttpRedirect);
 
-                string reply;
                 if (verb.ToUpper() == "GET")
                     SendAndExpect(HttpActionCommand + '0', OK);
                 else if (verb.ToUpper() == "POST")
@@ -907,9 +931,7 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void HttpInitialize(string url, bool allowHttpRedirect)
         {
-            SendCommand(HttpTerminateCommand);
-            // We don't really care about the reply to this - in fact, it will fail the first time HttpInitialize is called
-            GetReplyWithTimeout(DefaultCommandTimeout);
+            HttpTerminate();
 
             SendAndExpect(HttpInitializeCommand, OK);
             SendAndExpect(SetHttpParameterCommand + "\"CID\",1", OK);
@@ -923,7 +945,9 @@ namespace Molarity.Hardare.AdafruitFona
 
         private void HttpTerminate()
         {
-            SendAndExpect(HttpTerminateCommand, OK);
+            SendCommand(HttpTerminateCommand);
+            // We don't really care about the reply to this - in fact, it will fail the first time HttpInitialize is called
+            GetReplyWithTimeout(DefaultCommandTimeout);
         }
 
         #endregion
