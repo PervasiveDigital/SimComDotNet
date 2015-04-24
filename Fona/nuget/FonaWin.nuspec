@@ -3,7 +3,7 @@
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-Win</id>
     <title>Support for the Adafruit Fona GSM/GPRS Board on Windows</title>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
@@ -16,7 +16,7 @@
       GPIO-based management of the board is not currently supported, but will be added if/when Windows 10 IoT GPIO becomes available.
       This library uses the serial port (or a usb serial cable) to drive the Fona breakout board.
     </description>
-    <releaseNotes>Initial release.</releaseNotes>
+    <releaseNotes>Added support for HTTP interactions over GPRS</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS Windows Windows10 IoT</tags>
   </metadata>

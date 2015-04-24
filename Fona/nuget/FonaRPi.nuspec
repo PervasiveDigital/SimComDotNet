@@ -3,7 +3,7 @@
   <metadata>
     <id>Molarity.Hardware.AdafruitFona-RPi</id>
     <title>Support for the Adafruit Fona Breakout Board on Raspberry Pi (Linux/Mono)</title>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
     <authors>Martin Calsyn</authors>
     <owners>Prometheus Engineering S.L.</owners>
     <!--<licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl> -->
@@ -12,10 +12,10 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <summary>Raspberry Pi support for the Adafruit Fona breakout board</summary>
     <description>
-      This library provides managed language support for the Adafruit Fona breakout boards for .Net Micro Framework applications.
+      This library provides managed language support for the Adafruit Fona breakout boards for .Net applications running on Linux on Raspberry Pi devices.
       GPIO management of the board is not currently supported - only serial interactions. GPIO will be added in a future release.
     </description>
-    <releaseNotes>Initial release.</releaseNotes>
+    <releaseNotes>Added support for HTTP interactions over GPRS</releaseNotes>
     <copyright>Copyright 2015 Prometheus Engineering S.L.</copyright>
     <tags>adafruit fona GSM GPRS Linux RPi RaspberryPi IoT</tags>
   </metadata>

@@ -32,14 +32,14 @@ namespace MFFonaTest
             if (!_fona.PowerState)
                 _fona.PowerState = true;
 
+            // Reset the device to a known state
+            _fona.Reset();
+
             // Make sure we get the local tower time, if available
             if (!_fona.RtcEnabled)
                 _fona.RtcEnabled = true;
 
-            // Reset the device to a known state
-            _fona.Reset();
-
-//            _fona.FactoryReset();
+            //            _fona.FactoryReset();
 
             // Watch for ringing phones and manual changes to the power state
             _fona.Ringing += FonaOnRinging;
@@ -66,6 +66,8 @@ namespace MFFonaTest
             } while (status.RegistrationStatus != FonaDevice.RegistrationStatus.Home && status.RegistrationStatus != FonaDevice.RegistrationStatus.Roaming);
 
             Debug.Print("SIM CCID = " + _fona.GetSimCcid());
+
+            //_fona.SendSmsMessage("0000000000", "Hello there\nThis is a test.");
 
             Debug.Print("We are currently connected to : " + status.RegistrationStatus.ToString());
             if (status.LocationAreaCode!=null)
@@ -121,7 +123,7 @@ namespace MFFonaTest
             //   loop below until the http request completes.
             _httpRequestInProgress = true;
             _fona.HttpResponseReceived += FonaOnHttpResponseReceived;
-            _fona.SendHttpRequest("GET", "http://hell.org/", false, null);
+            _fona.SendHttpRequest("GET", "http://hell.org/", false);
 
             bool state = true;
             int iCount = 0;

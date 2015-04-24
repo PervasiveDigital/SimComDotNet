@@ -1,5 +1,5 @@
 ﻿// Define this for very verbose debugging of the serial protocol interactions
-//#define VERBOSE
+#define VERBOSE
 // Define this to turn off timeouts, which can get in the way when you are single-stepping
 #if DEBUG
 //#define SUSPEND_TIMEOUT
@@ -63,6 +63,7 @@ namespace Molarity.Hardare.AdafruitFona
         private const int HttpTimeout = 30000;
         private const string AT = "AT";
         private const string OK = "OK";
+        private const string DOWNLOAD = "DOWNLOAD";
         private const string FactoryResetCommand = "ATZ";
         private const string DialCommand = "ATD";
         private const string RedialCommand = "ATDL";
@@ -101,6 +102,8 @@ namespace Molarity.Hardare.AdafruitFona
         private const string SetEnableSmsNotification = "AT+CNMI=";
         private const string ReadEnableSmsNotification = "AT+CNMI?";
         private const string ReadEnableSmsNotificationReply = "+CNMI: ";
+        private const string SendSmsCommand = "AT+CMGS=";
+        private const string SendSmsReply = "+CMGS: ";
         private const string ReadSmsMessageCount = "AT+CPMS?";
         private const string ReadSmsMessageCountReply = "+CPMS: ";
         private const string SetSmsMode = "AT+CMGF=";
@@ -115,6 +118,7 @@ namespace Molarity.Hardare.AdafruitFona
         private const string HttpInitializeCommand = "AT+HTTPINIT";
         private const string HttpTerminateCommand = "AT+HTTPTERM";
         private const string SetHttpParameterCommand = "AT+HTTPPARA=";
+        private const string SetHttpDataCommand = "AT+HTTPDATA=";
         private const string SetHttpSslCommand = "AT+HTTPSSL=";
         private const string HttpReadCommand = "AT+HTTPREAD";
         private const string HttpReadReply = "+HTTPREAD: ";
@@ -126,7 +130,7 @@ namespace Molarity.Hardare.AdafruitFona
         private static Thread _eventDispatchThread = null;
         private readonly SerialPort _port;
 
-        // lock order semantics : lockCommand -> lockSendExpect
+        // lock order semantics : lockCommand -> lockSend
         // Ensure that only one command is in flight at a time
         private readonly object _lockCommand = new object();
         // Ensure that only one send-expect pair is in flight at a time
@@ -675,6 +679,34 @@ namespace Molarity.Hardare.AdafruitFona
             }
         }
 
+        public int SendSmsMessage(string destination, string message)
+        {
+            lock (_lockCommand)
+            {
+                // text mode
+                SendAndExpect(SetSmsMode + "1", OK);
+
+                var reply = SendCommandAndReadReply(SendSmsCommand + '"' + destination + '"');
+                if (reply.IndexOf('>')==-1)
+                    throw new FonaExpectException(">", reply);
+
+                reply = SendCommandAndReadReply(message + '\u001a', 2 * DefaultCommandTimeout);
+                Expect(OK, 2 * DefaultCommandTimeout);
+
+                int result;
+                try
+                {
+                    result = int.Parse(reply);
+                }
+                catch (Exception)
+                {
+                    result = -1;
+                }
+                return result;
+            }
+        }
+
+
         /// <summary>
         /// Return the number of SMS messages in memory
         /// </summary>
@@ -910,13 +942,36 @@ namespace Molarity.Hardare.AdafruitFona
         /// </summary>
         /// <param name="verb">The HTTP verb to use. Must be "GET", "POST" or "HEAD"</param>
         /// <param name="url">The full URL that the request will be sent to</param>
-        /// <param name="allowHttpRedirect">TRUE to allow https redirects (may not fully function)</param>
+        /// <param name="allowHttpsRedirect">TRUE to allow https redirects (may not fully function)</param>
+        public void SendHttpRequest(string verb, string url, bool allowHttpsRedirect)
+        {
+            SendHttpRequest(verb, url, allowHttpsRedirect, null, null);
+        }
+
+        /// <summary>
+        /// Send an http request
+        /// </summary>
+        /// <param name="verb">The HTTP verb to use. Must be "GET", "POST" or "HEAD"</param>
+        /// <param name="url">The full URL that the request will be sent to</param>
+        /// <param name="allowHttpsRedirect">TRUE to allow https redirects (may not fully function)</param>
+        /// <param name="contentType">The body to send with the request</param>
         /// <param name="body">The body to send with the request</param>
-        public void SendHttpRequest(string verb, string url, bool allowHttpRedirect, string body)
+        public void SendHttpRequest(string verb, string url, bool allowHttpsRedirect, string contentType, string body)
         {
             lock (_lockCommand)
             {
-                HttpInitialize(url, allowHttpRedirect);
+                HttpInitialize(url, allowHttpsRedirect);
+
+                if (contentType != null && contentType.Length > 0)
+                    SendAndExpect(SetHttpParameterCommand + "\"CONTENT\", \"" + contentType + '"', OK);
+
+                if (body != null && body.Length > 0)
+                {
+                    SendCommand(SetHttpDataCommand + body.Length + ",10000");
+                    Expect(DOWNLOAD);
+                    WriteLine(body);
+                    Expect(OK);
+                }
 
                 if (verb.ToUpper() == "GET")
                     SendAndExpect(HttpActionCommand + '0', OK);
