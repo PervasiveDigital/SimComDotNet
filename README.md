@@ -17,9 +17,6 @@ With the exception of places where we had to accomodate platform-specific differ
 is handled, the api for these libraries is identical across all of the platforms and most of the 
 code is common between the different platforms.
 
-This project is still in 'pre-release', so when searching for the nuget packages be sure to either select
-'Include Prerelease' in the ui, or use the -Pre flag from the Package Manager command line.
-
 Documentation will be provided on the github wiki here : https://github.com/martincalsyn/Fona.net/wiki
 
 ## A Note on GPIO support
